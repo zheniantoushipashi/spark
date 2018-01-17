@@ -342,6 +342,7 @@ private[storage] class BlockInfoManager extends Logging {
           case ShuffleBlockId(shuffleId, mapId, reduceId) =>
             val t = shuffleInfosIndex.getOrElse(shuffleId, Nil)
             shuffleInfosIndex.put(shuffleId, blockId :: t)
+          case _ =>
         }
 
         lockForWriting(blockId)
@@ -445,6 +446,7 @@ private[storage] class BlockInfoManager extends Logging {
               broadcaseInfosIndex.remove(broadcastId)
             case ShuffleBlockId(shuffleId, mapId, reduceId) =>
               shuffleInfosIndex.remove(shuffleId)
+            case _ =>
           }
 
           infos.remove(blockId)
