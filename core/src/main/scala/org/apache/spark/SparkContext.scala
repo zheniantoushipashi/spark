@@ -1995,10 +1995,9 @@ class SparkContext(config: SparkConf) extends Logging {
    * has overridden the call site using `setCallSite()`, this will return the user's version.
    */
   private[spark] def getCallSite(): CallSite = {
-    lazy val callSite = Utils.getCallSite()
     CallSite(
-      Option(getLocalProperty(CallSite.SHORT_FORM)).getOrElse(callSite.shortForm),
-      Option(getLocalProperty(CallSite.LONG_FORM)).getOrElse(callSite.longForm)
+      Option(getLocalProperty(CallSite.SHORT_FORM)).getOrElse("call site (short)"),
+      Option(getLocalProperty(CallSite.LONG_FORM)).getOrElse("call site (long)")
     )
   }
 
