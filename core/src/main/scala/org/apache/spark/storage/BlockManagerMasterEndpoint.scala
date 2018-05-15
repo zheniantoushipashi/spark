@@ -53,6 +53,7 @@ class BlockManagerMasterEndpoint(
 
   // Mapping from block id to the set of block managers that have the block.
   private val blockLocations = new JHashMap[BlockId, mutable.HashSet[BlockManagerId]]
+  private val rddId2BlockIdIndex = new mutable.HashMap[Int, mutable.HashSet[BlockId]]
 
   private val askThreadPool =
     ThreadUtils.newDaemonCachedThreadPool("block-manager-ask-thread-pool", 100)
@@ -145,17 +146,57 @@ class BlockManagerMasterEndpoint(
       }
   }
 
+  private def onNewBlockId(blockId: BlockId) = {
+    blockId match {
+      case RDDBlockId(rddId, splitIndex) =>
+        val x = rddId2BlockIdIndex.get(rddId)
+        var targetSet: mutable.HashSet[BlockId] = null
+        x match {
+          case Some(blockIdSet) =>
+            targetSet = blockIdSet
+          case None =>
+            targetSet = new mutable.HashSet[BlockId]
+            rddId2BlockIdIndex.put(rddId, targetSet)
+        }
+        targetSet += blockId
+
+      case _ =>
+    }
+  }
+
+
+  private def onRemovedBlockId(blockId: BlockId) = {
+    blockId match {
+      case RDDBlockId(rddId, splitIndex) =>
+        val t = rddId2BlockIdIndex.get(rddId)
+        t match {
+          case Some(blockIdSet) =>
+            blockIdSet -= blockId
+            if(blockIdSet.isEmpty) {
+              rddId2BlockIdIndex.remove(rddId)
+            }
+          case None =>
+        }
+      case _ =>
+    }
+  }
+
   private def removeRdd(rddId: Int): Future[Seq[Int]] = {
     // First remove the metadata for the given RDD, and then asynchronously remove the blocks
     // from the slaves.
 
     // Find all blocks for the given RDD, remove the block from both blockLocations and
     // the blockManagerInfo that is tracking the blocks.
-    val blocks = blockLocations.asScala.keys.flatMap(_.asRDDId).filter(_.rddId == rddId)
-    blocks.foreach { blockId =>
+
+    // val blocks = blockLocations.asScala.keys.flatMap(_.asRDDId).filter(_.rddId == rddId)
+    val blocks = rddId2BlockIdIndex.getOrElse(rddId, new mutable.HashSet[BlockId])
+    val blocksList = blocks.toList // make a copy because blocks will be changed in foreach
+
+    blocksList.foreach { blockId =>
       val bms: mutable.HashSet[BlockManagerId] = blockLocations.get(blockId)
       bms.foreach(bm => blockManagerInfo.get(bm).foreach(_.removeBlock(blockId)))
       blockLocations.remove(blockId)
+      onRemovedBlockId(blockId)
     }
 
     // Ask the slaves to remove the RDD, and put the result in a sequence of Futures.
@@ -227,6 +268,7 @@ class BlockManagerMasterEndpoint(
       // etc.) as replication doesn't make much sense in that context.
       if (locations.size == 0) {
         blockLocations.remove(blockId)
+        onRemovedBlockId(blockId)
         logWarning(s"No more replicas available for $blockId !")
       } else if (proactivelyReplicate && (blockId.isRDD || blockId.isInstanceOf[TestBlockId])) {
         // As a heursitic, assume single executor failure to find out the number of replicas that
@@ -419,6 +461,7 @@ class BlockManagerMasterEndpoint(
     } else {
       locations = new mutable.HashSet[BlockManagerId]
       blockLocations.put(blockId, locations)
+      onNewBlockId(blockId)
     }
 
     if (storageLevel.isValid) {
@@ -430,6 +473,7 @@ class BlockManagerMasterEndpoint(
     // Remove the block from master tracking if it has been removed on all slaves.
     if (locations.size == 0) {
       blockLocations.remove(blockId)
+      onRemovedBlockId(blockId)
     }
     true
   }
