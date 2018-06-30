@@ -155,6 +155,7 @@ class SortBasedAggregationIterator(
     if (hasNext) {
       // Process the current group.
       processCurrentSortedGroup()
+      changeRowGroup(sortBasedAggregationBuffer)
       // Generate output row for the current group.
       val outputRow = generateOutput(currentGroupingKey, sortBasedAggregationBuffer)
       // Initialize buffer values for the next group.

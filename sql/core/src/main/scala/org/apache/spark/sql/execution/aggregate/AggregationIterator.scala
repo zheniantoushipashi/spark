@@ -274,4 +274,14 @@ abstract class AggregationIterator(
       i += 1
     }
   }
+
+
+  /** Initializes buffer values for all aggregate functions. */
+  protected def changeRowGroup(buffer: InternalRow): Unit = {
+    var i = 0
+    while (i < allImperativeAggregateFunctions.length) {
+      allImperativeAggregateFunctions(i).rowGroupChange(buffer)
+      i += 1
+    }
+  }
 }

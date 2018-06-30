@@ -40,13 +40,13 @@ class ScalaAggregateFunction(schema: StructType) extends UserDefinedAggregateFun
 
   def deterministic: Boolean = true
 
-  def initialize(buffer: MutableAggregationBuffer): Unit = {
+  def initialize(buffer: MutableAggregationBuffer, hash: Int): Unit = {
     (0 until schema.length).foreach { i =>
       buffer.update(i, null)
     }
   }
 
-  def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
+  def update(buffer: MutableAggregationBuffer, input: Row, hash: Int): Unit = {
     if (!input.isNullAt(0) && input.getInt(0) == 50) {
       (0 until schema.length).foreach { i =>
         buffer.update(i, input.get(i))
@@ -54,7 +54,7 @@ class ScalaAggregateFunction(schema: StructType) extends UserDefinedAggregateFun
     }
   }
 
-  def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
+  def merge(buffer1: MutableAggregationBuffer, buffer2: Row, hash: Int): Unit = {
     if (!buffer2.isNullAt(0) && buffer2.getInt(0) == 50) {
       (0 until schema.length).foreach { i =>
         buffer1.update(i, buffer2.get(i))
@@ -77,15 +77,15 @@ class ScalaAggregateFunctionWithoutInputSchema extends UserDefinedAggregateFunct
 
   def deterministic: Boolean = true
 
-  def initialize(buffer: MutableAggregationBuffer): Unit = {
+  def initialize(buffer: MutableAggregationBuffer, hash: Int): Unit = {
     buffer.update(0, 0L)
   }
 
-  def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
+  def update(buffer: MutableAggregationBuffer, input: Row, hash: Int): Unit = {
     buffer.update(0, input.getAs[Seq[Row]](0).map(_.getAs[Int]("v")).sum + buffer.getLong(0))
   }
 
-  def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
+  def merge(buffer1: MutableAggregationBuffer, buffer2: Row, hash: Int): Unit = {
     buffer1.update(0, buffer1.getLong(0) + buffer2.getLong(0))
   }
 
@@ -106,17 +106,17 @@ class LongProductSum extends UserDefinedAggregateFunction {
 
   def deterministic: Boolean = true
 
-  def initialize(buffer: MutableAggregationBuffer): Unit = {
+  def initialize(buffer: MutableAggregationBuffer, hash: Int): Unit = {
     buffer(0) = 0L
   }
 
-  def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
+  def update(buffer: MutableAggregationBuffer, input: Row, hash: Int): Unit = {
     if (!(input.isNullAt(0) || input.isNullAt(1))) {
       buffer(0) = buffer.getLong(0) + input.getLong(0) * input.getLong(1)
     }
   }
 
-  def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
+  def merge(buffer1: MutableAggregationBuffer, buffer2: Row, hash: Int): Unit = {
     buffer1(0) = buffer1.getLong(0) + buffer2.getLong(0)
   }
 

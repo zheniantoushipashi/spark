@@ -92,8 +92,11 @@ abstract class UserDefinedAggregateFunction extends Serializable {
    *
    * @since 1.5.0
    */
-  def initialize(buffer: MutableAggregationBuffer): Unit
+  def initialize(buffer: MutableAggregationBuffer, hash: Int): Unit
 
+  def rowGroupChange(mutableAggBuffer: MutableAggregationBuffer,
+                     hash: Int): Unit = {
+  }
   /**
    * Updates the given aggregation buffer `buffer` with new input data from `input`.
    *
@@ -101,7 +104,7 @@ abstract class UserDefinedAggregateFunction extends Serializable {
    *
    * @since 1.5.0
    */
-  def update(buffer: MutableAggregationBuffer, input: Row): Unit
+  def update(buffer: MutableAggregationBuffer, input: Row, hash: Int): Unit
 
   /**
    * Merges two aggregation buffers and stores the updated buffer values back to `buffer1`.
@@ -110,7 +113,7 @@ abstract class UserDefinedAggregateFunction extends Serializable {
    *
    * @since 1.5.0
    */
-  def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit
+  def merge(buffer1: MutableAggregationBuffer, buffer2: Row, hash: Int): Unit
 
   /**
    * Calculates the final result of this [[UserDefinedAggregateFunction]] based on the given

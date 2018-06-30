@@ -343,6 +343,7 @@ case class ScalaUDAF(
   override val aggBufferSchema: StructType = udaf.bufferSchema
 
   override val aggBufferAttributes: Seq[AttributeReference] = aggBufferSchema.toAttributes
+  val hash = System.identityHashCode(this)
 
   // Note: although this simply copies aggBufferAttributes, this common code can not be placed
   // in the superclass because that will lead to initialization ordering issues.
@@ -416,7 +417,7 @@ case class ScalaUDAF(
   override def initialize(buffer: InternalRow): Unit = {
     mutableAggregateBuffer.underlyingBuffer = buffer
 
-    udaf.initialize(mutableAggregateBuffer)
+    udaf.initialize(mutableAggregateBuffer, hash)
   }
 
   override def update(buffer: InternalRow, input: InternalRow): Unit = {
@@ -424,14 +425,21 @@ case class ScalaUDAF(
 
     udaf.update(
       mutableAggregateBuffer,
-      inputToScalaConverters(inputProjection(input)).asInstanceOf[Row])
+      inputToScalaConverters(inputProjection(input)).asInstanceOf[Row],
+      hash)
+  }
+
+  override def rowGroupChange(mutableAggBuffer: InternalRow): Unit = {
+    mutableAggregateBuffer.underlyingBuffer = mutableAggBuffer
+    udaf.rowGroupChange(mutableAggregateBuffer, hash)
   }
 
   override def merge(buffer1: InternalRow, buffer2: InternalRow): Unit = {
     mutableAggregateBuffer.underlyingBuffer = buffer1
     inputAggregateBuffer.underlyingInputBuffer = buffer2
 
-    udaf.merge(mutableAggregateBuffer, inputAggregateBuffer)
+    udaf.merge(mutableAggregateBuffer, inputAggregateBuffer,
+      hash)
   }
 
   override def eval(buffer: InternalRow): Any = {
