@@ -286,17 +286,19 @@ class DataFrameWindowFunctionsSuite extends QueryTest with SharedSQLContext {
 
       def deterministic: Boolean = true
 
-      def initialize(buffer: MutableAggregationBuffer): Unit = {
+      def initialize(buffer: MutableAggregationBuffer, hash: Int): Unit = {
         buffer(0) = 0L
       }
 
-      def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
+      def update(buffer: MutableAggregationBuffer, input: Row,
+                 hash: Int): Unit = {
         if (!(input.isNullAt(0) || input.isNullAt(1))) {
           buffer(0) = buffer.getLong(0) + input.getLong(0) * input.getLong(1)
         }
       }
 
-      def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
+      def merge(buffer1: MutableAggregationBuffer, buffer2: Row,
+                hash: Int): Unit = {
         buffer1(0) = buffer1.getLong(0) + buffer2.getLong(0)
       }
 

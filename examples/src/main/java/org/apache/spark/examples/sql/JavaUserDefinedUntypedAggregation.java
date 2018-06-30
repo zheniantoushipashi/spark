@@ -69,12 +69,12 @@ public class JavaUserDefinedUntypedAggregation {
     // standard methods like retrieving a value at an index (e.g., get(), getBoolean()), provides
     // the opportunity to update its values. Note that arrays and maps inside the buffer are still
     // immutable.
-    public void initialize(MutableAggregationBuffer buffer) {
+    public void initialize(MutableAggregationBuffer buffer, int hash) {
       buffer.update(0, 0L);
       buffer.update(1, 0L);
     }
     // Updates the given aggregation buffer `buffer` with new input data from `input`
-    public void update(MutableAggregationBuffer buffer, Row input) {
+    public void update(MutableAggregationBuffer buffer, Row input, int hash) {
       if (!input.isNullAt(0)) {
         long updatedSum = buffer.getLong(0) + input.getLong(0);
         long updatedCount = buffer.getLong(1) + 1;
@@ -83,7 +83,7 @@ public class JavaUserDefinedUntypedAggregation {
       }
     }
     // Merges two aggregation buffers and stores the updated buffer values back to `buffer1`
-    public void merge(MutableAggregationBuffer buffer1, Row buffer2) {
+    public void merge(MutableAggregationBuffer buffer1, Row buffer2, int hash) {
       long mergedSum = buffer1.getLong(0) + buffer2.getLong(0);
       long mergedCount = buffer1.getLong(1) + buffer2.getLong(1);
       buffer1.update(0, mergedSum);

@@ -68,12 +68,12 @@ public class MyDoubleSum extends UserDefinedAggregateFunction {
     return true;
   }
 
-  @Override public void initialize(MutableAggregationBuffer buffer) {
+  @Override public void initialize(MutableAggregationBuffer buffer, int hash) {
     // The initial value of the sum is null.
     buffer.update(0, null);
   }
 
-  @Override public void update(MutableAggregationBuffer buffer, Row input) {
+  @Override public void update(MutableAggregationBuffer buffer, Row input, int hash) {
     // This input Row only has a single column storing the input value in Double.
     // We only update the buffer when the input value is not null.
     if (!input.isNullAt(0)) {
@@ -89,7 +89,7 @@ public class MyDoubleSum extends UserDefinedAggregateFunction {
     }
   }
 
-  @Override public void merge(MutableAggregationBuffer buffer1, Row buffer2) {
+  @Override public void merge(MutableAggregationBuffer buffer1, Row buffer2, int hash) {
     // buffer1 and buffer2 have the same structure.
     // We only update the buffer1 when the input buffer2's value is not null.
     if (!buffer2.isNullAt(0)) {

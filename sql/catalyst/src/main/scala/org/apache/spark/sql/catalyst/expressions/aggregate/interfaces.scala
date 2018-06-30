@@ -313,6 +313,10 @@ abstract class ImperativeAggregate extends AggregateFunction with CodegenFallbac
    */
   def initialize(mutableAggBuffer: InternalRow): Unit
 
+
+  def rowGroupChange(mutableAggBuffer: InternalRow): Unit = {
+  }
+
   /**
    * Updates its aggregation buffer, located in `mutableAggBuffer`, based on the given `inputRow`.
    *
