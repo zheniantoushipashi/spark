@@ -25,7 +25,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.security.{Credentials, UserGroupInformation}
 
-import org.apache.spark.{SparkConf, SparkContext, SparkEnv}
+import org.apache.spark.SparkConf
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.deploy.yarn.config._
 import org.apache.spark.internal.Logging
@@ -39,7 +39,6 @@ private[spark] class CredentialUpdater(
   @volatile private var lastCredentialsFileSuffix = 0
 
   private val credentialsFile = sparkConf.get(CREDENTIALS_FILE_PATH)
-  private val skipUpdate = sparkConf.get(CREDENTIAL_DRIVER_SKIP_UPDATE)
   private val freshHadoopConf =
     SparkHadoopUtil.get.getConfBypassingFSCache(
       hadoopConf, new Path(credentialsFile).toUri.getScheme)
@@ -67,10 +66,6 @@ private[spark] class CredentialUpdater(
   }
 
   private def updateCredentialsIfRequired(): Unit = {
-    if (skipUpdate && (SparkEnv.get.executorId == SparkContext.DRIVER_IDENTIFIER)) {
-      logInfo("Skip update token with driver.")
-      return
-    }
     val timeToNextUpdate = try {
       val credentialsFilePath = new Path(credentialsFile)
       val remoteFs = FileSystem.get(freshHadoopConf)
