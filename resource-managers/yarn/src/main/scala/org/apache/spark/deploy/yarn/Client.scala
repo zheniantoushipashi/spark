@@ -523,6 +523,7 @@ private[spark] class Client(
           jars.foreach { jar =>
             if (!isLocalUri(jar)) {
               val path = getQualifiedLocalPath(Utils.resolveURI(jar), hadoopConf)
+              logInfo("Path " + path)
               val pathFs = FileSystem.get(path.toUri(), hadoopConf)
               pathFs.globStatus(path).filter(_.isFile()).foreach { entry =>
                 val uri = entry.getPath().toUri()
