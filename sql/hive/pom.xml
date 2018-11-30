@@ -22,7 +22,7 @@
   <parent>
     <groupId>org.apache.spark</groupId>
     <artifactId>spark-parent_2.11</artifactId>
-    <version>2.4.1-SNAPSHOT</version>
+    <version>2.4.0-kylin-r1</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -36,10 +36,6 @@
 
   <dependencies>
     <!-- Added for Hive Parquet SerDe -->
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-hadoop-bundle</artifactId>
-    </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
@@ -101,6 +97,12 @@
       <classifier>core</classifier>
 -->
     </dependency>
+
+    <dependency>
+    <groupId>it.unimi.dsi</groupId>
+    <artifactId>fastutil</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>${hive.group}</groupId>
       <artifactId>hive-metastore</artifactId>
