@@ -17,7 +17,8 @@
 
 package org.apache.spark
 
-import java.util.concurrent.Semaphore
+import java.util.concurrent.{ConcurrentHashMap, Executors, Semaphore}
+import java.util.concurrent.atomic.AtomicLong
 import javax.annotation.concurrent.GuardedBy
 
 import scala.collection.mutable
@@ -31,7 +32,7 @@ import org.scalatest.exceptions.TestFailedException
 import org.apache.spark.AccumulatorParam.StringAccumulatorParam
 import org.apache.spark.scheduler._
 import org.apache.spark.serializer.JavaSerializer
-import org.apache.spark.util.{AccumulatorContext, AccumulatorMetadata, AccumulatorV2, LongAccumulator}
+import org.apache.spark.util.{AccumulatorContext, AccumulatorMetadata, AccumulatorV2, DoubleAccumulator, LongAccumulator}
 
 
 class AccumulatorSuite extends SparkFunSuite with Matchers with LocalSparkContext {
@@ -234,6 +235,43 @@ class AccumulatorSuite extends SparkFunSuite with Matchers with LocalSparkContex
     assert(acc.value === "with")
     acc.merge("kindness")
     assert(acc.value === "kindness")
+  }
+
+  test("accumulator performance") {
+    sc = new SparkContext("local", "test")
+    val service = Executors.newFixedThreadPool(20)
+    val atomicLong = new AtomicLong(0)
+    new Thread(new Runnable {
+      override def run(): Unit = {
+        while (true) {
+          Thread.sleep(10000L)
+          println(s"Current  qps : ${atomicLong.get()/50} ${AccumulatorContext.numAccums}")
+          atomicLong.set(0)
+        }
+      }
+    }).start()
+    while (true) {
+      service.submit(new Runnable {
+        override def run(): Unit = {
+          Thread.sleep( 10)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+          new DoubleAccumulator().register(sc, Some("123"), false)
+          atomicLong.addAndGet(1)
+        }
+      })
+    }
+    Thread.sleep(1000000000L)
   }
 }
 
