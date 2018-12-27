@@ -289,7 +289,7 @@ class ParquetFileFormat
       sparkSession: SparkSession,
       options: Map[String, String],
       path: Path): Boolean = {
-    false
+    true
   }
 
   override def buildReaderWithPartitionValues(
