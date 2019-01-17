@@ -530,18 +530,18 @@ private[spark] class TaskSetManager(
   private def maybeFinishTaskSet() {
     if (isZombie && runningTasks == 0) {
       sched.taskSetFinished(this)
-      val broadcastId = taskSet.tasks.head match {
-        case resultTask: ResultTask[Any, Any] =>
-            resultTask.taskBinary.id
-        case shuffleMapTask: ShuffleMapTask =>
-           shuffleMapTask.taskBinary.id
-      }
-      SparkEnv.get.broadcastManager.unbroadcast(broadcastId, true, false)
       if (tasksSuccessful == numTasks) {
-        blacklistTracker.foreach(_.updateBlacklistForSuccessfulTaskSet(
-          taskSet.stageId,
-          taskSet.stageAttemptId,
-          taskSetBlacklistHelperOpt.get.execToFailures))
+          val broadcastId = taskSet.tasks.head match {
+            case resultTask: ResultTask[Any, Any] =>
+              resultTask.taskBinary.id
+            case shuffleMapTask: ShuffleMapTask =>
+              shuffleMapTask.taskBinary.id
+          }
+          SparkEnv.get.broadcastManager.unbroadcast(broadcastId, true, false)
+          blacklistTracker.foreach(_.updateBlacklistForSuccessfulTaskSet(
+            taskSet.stageId,
+            taskSet.stageAttemptId,
+            taskSetBlacklistHelperOpt.get.execToFailures))
       }
     }
   }

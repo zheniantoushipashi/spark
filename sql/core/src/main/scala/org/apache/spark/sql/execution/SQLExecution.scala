@@ -21,10 +21,12 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 import org.apache.spark.SparkEnv
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd, SparkListenerSQLExecutionStart}
 
-object SQLExecution {
+
+object SQLExecution extends Logging{
 
   val EXECUTION_ID_KEY = "spark.sql.execution.id"
 
@@ -62,6 +64,7 @@ object SQLExecution {
     val sc = sparkSession.sparkContext
     val oldExecutionId = sc.getLocalProperty(EXECUTION_ID_KEY)
     val executionId = SQLExecution.nextExecutionId
+    logInfo(s"Execution Id is $executionId ")
     sc.setLocalProperty(EXECUTION_ID_KEY, executionId.toString)
     executionIdToQueryExecution.put(executionId, queryExecution)
     try {
