@@ -18,7 +18,6 @@
 package org.apache.spark.deploy.security
 
 import scala.collection.JavaConverters._
-import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
@@ -52,7 +51,7 @@ private[deploy] class HadoopFSDelegationTokenProvider(fileSystems: Configuration
     if (tokenRenewalInterval == null) {
       tokenRenewalInterval = getTokenRenewalInterval(hadoopConf, sparkConf, fsToGetTokens)
     }
-
+    logInfo(s"Token renew interval is :$tokenRenewalInterval")
     // Get the time of next renewal.
     val nextRenewalDate = tokenRenewalInterval.flatMap { interval =>
       val nextRenewalDates = fetchCreds.getAllTokens.asScala
@@ -61,11 +60,12 @@ private[deploy] class HadoopFSDelegationTokenProvider(fileSystems: Configuration
           val identifier = token
             .decodeIdentifier()
             .asInstanceOf[AbstractDelegationTokenIdentifier]
+          logInfo(s"Current token renew interval is :${identifier.getIssueDate}, token $identifier")
           identifier.getIssueDate + interval
         }
       if (nextRenewalDates.isEmpty) None else Some(nextRenewalDates.min)
     }
-
+    logInfo(s"Next token renew interval is :$nextRenewalDate")
     nextRenewalDate
   }
 
@@ -115,13 +115,17 @@ private[deploy] class HadoopFSDelegationTokenProvider(fileSystems: Configuration
       val renewIntervals = creds.getAllTokens.asScala.filter {
         _.decodeIdentifier().isInstanceOf[AbstractDelegationTokenIdentifier]
       }.flatMap { token =>
-        Try {
+        var interval = 18 * 3600L
+        try {
           val newExpiration = token.renew(hadoopConf)
           val identifier = token.decodeIdentifier().asInstanceOf[AbstractDelegationTokenIdentifier]
-          val interval = newExpiration - identifier.getIssueDate
+          interval = newExpiration - identifier.getIssueDate
           logInfo(s"Renewal interval is $interval for token ${token.getKind.toString}")
-          interval
-        }.toOption
+        } catch {
+          case throwable: Throwable =>
+           logInfo("Error for init Token", throwable)
+        }
+        List(interval)
       }
       if (renewIntervals.isEmpty) None else Some(renewIntervals.min)
     }

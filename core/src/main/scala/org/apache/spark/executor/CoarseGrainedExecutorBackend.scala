@@ -128,6 +128,8 @@ private[spark] class CoarseGrainedExecutorBackend(
       logInfo(s"Received tokens of ${tokenBytes.length} bytes")
       if (SparkEnv.get.executorId != SparkContext.DRIVER_IDENTIFIER) {
         SparkHadoopUtil.get.addDelegationTokens(tokenBytes, env.conf)
+      } else {
+        logInfo("Skip update tokens with driver.")
       }
   }
 
@@ -186,7 +188,6 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       userClassPath: Seq[URL]) {
 
     Utils.initDaemon(log)
-
     SparkHadoopUtil.get.runAsSparkUser { () =>
       // Debug code
       Utils.checkHost(hostname)
