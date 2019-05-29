@@ -29,6 +29,7 @@ import org.apache.parquet.column.Dictionary;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.*;
 import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.format.ParquetMetrics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -538,6 +539,7 @@ public class VectorizedColumnReader {
   }
 
   private void readPage() {
+    ParquetMetrics.get().pageReadStart();
     DataPage page = pageReader.readPage();
     // TODO: Why is this a visitor?
     page.accept(new DataPage.Visitor<Void>() {
@@ -561,6 +563,7 @@ public class VectorizedColumnReader {
         }
       }
     });
+    ParquetMetrics.get().pageReadEnd();
   }
 
   private void initDataReader(Encoding dataEncoding, ByteBufferInputStream in) throws IOException {
