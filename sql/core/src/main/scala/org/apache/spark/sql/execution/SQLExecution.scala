@@ -29,6 +29,7 @@ import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd, SparkLis
 object SQLExecution extends Logging{
 
   val EXECUTION_ID_KEY = "spark.sql.execution.id"
+  val N_EXECUTION_ID_KEY = "kylin.query.execution.id"
 
   private val _nextExecutionId = new AtomicLong(0)
 
@@ -76,7 +77,9 @@ object SQLExecution extends Logging{
       withSQLConfPropagated(sparkSession) {
         sc.listenerBus.post(SparkListenerSQLExecutionStart(
           executionId, callSite.shortForm, callSite.longForm, queryExecution.toString,
-          SparkPlanInfo.fromSparkPlan(queryExecution.executedPlan), System.currentTimeMillis()))
+          SparkPlanInfo.fromSparkPlan(queryExecution.executedPlan), System.currentTimeMillis(),
+          sc.getLocalProperty(N_EXECUTION_ID_KEY),
+          queryExecution))
         try {
           body
         } finally {
