@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd, SparkListenerSQLExecutionStart}
+import org.apache.spark.sql.execution.ui.{PostQueryExecutionForKylin, SparkListenerSQLExecutionEnd, SparkListenerSQLExecutionStart}
 
 
 object SQLExecution extends Logging{
@@ -77,7 +77,9 @@ object SQLExecution extends Logging{
       withSQLConfPropagated(sparkSession) {
         sc.listenerBus.post(SparkListenerSQLExecutionStart(
           executionId, callSite.shortForm, callSite.longForm, queryExecution.toString,
-          SparkPlanInfo.fromSparkPlan(queryExecution.executedPlan), System.currentTimeMillis(),
+          SparkPlanInfo.fromSparkPlan(queryExecution.executedPlan), System.currentTimeMillis()))
+
+        sc.listenerBus.post(PostQueryExecutionForKylin(
           sc.getLocalProperty(N_EXECUTION_ID_KEY),
           queryExecution))
         try {

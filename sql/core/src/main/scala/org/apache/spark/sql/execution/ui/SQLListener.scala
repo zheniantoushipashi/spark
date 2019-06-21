@@ -33,10 +33,18 @@ case class SparkListenerSQLExecutionStart(
     details: String,
     physicalPlanDescription: String,
     sparkPlanInfo: SparkPlanInfo,
-    time: Long,
+    time: Long)
+  extends SparkListenerEvent
+
+@DeveloperApi
+case class PostQueryExecutionForKylin(
     nExecutionId: String = "",
     queryExecution: QueryExecution = null)
-  extends SparkListenerEvent
+  extends SparkListenerEvent {
+
+  protected[spark] override def logEvent: Boolean = false
+
+}
 
 @DeveloperApi
 case class SparkListenerSQLExecutionEnd(executionId: Long, time: Long)
