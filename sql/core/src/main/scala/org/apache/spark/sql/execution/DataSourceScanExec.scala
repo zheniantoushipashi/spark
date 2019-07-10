@@ -22,6 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, LocatedFileStatus, Path}
 
+import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
@@ -32,11 +33,12 @@ import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, Partitioning, UnknownPartitioning}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat => ParquetSource}
-import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.sources.{BaseRelation, Filter}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.util.Utils
+import org.apache.spark.util.{TaskCompletionListener, Utils}
 import org.apache.spark.util.collection.BitSet
+
 
 trait DataSourceScanExec extends LeafExecNode with CodegenSupport {
   val relation: BaseRelation
@@ -332,6 +334,7 @@ case class FileSourceScanExec(
 
   override lazy val metrics =
     Map("numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
+      "readBytes" -> SQLMetrics.createMetric(sparkContext, "number of read bytes"),
       "numFiles" -> SQLMetrics.createMetric(sparkContext, "number of files"),
       "metadataTime" -> SQLMetrics.createMetric(sparkContext, "metadata time (ms)"),
       "scanTime" -> SQLMetrics.createTimingMetric(sparkContext, "scan time"))
@@ -344,9 +347,10 @@ case class FileSourceScanExec(
       WholeStageCodegenExec(this)(codegenStageId = 0).execute()
     } else {
       val numOutputRows = longMetric("numOutputRows")
-
+      val readBytes = longMetric("readBytes")
       if (needsUnsafeRowConversion) {
         inputRDD.mapPartitionsWithIndexInternal { (index, iter) =>
+          addReadBytesListener(readBytes)
           val proj = UnsafeProjection.create(schema)
           proj.initialize(index)
           iter.map( r => {
@@ -355,9 +359,12 @@ case class FileSourceScanExec(
           })
         }
       } else {
-        inputRDD.map { r =>
-          numOutputRows += 1
-          r
+        inputRDD.mapPartitions { iter =>
+          addReadBytesListener(readBytes)
+          iter.map { r =>
+            numOutputRows += 1
+            r
+          }
         }
       }
     }
@@ -533,5 +540,28 @@ case class FileSourceScanExec(
       optionalBucketSet,
       QueryPlan.normalizePredicates(dataFilters, output),
       None)
+  }
+
+  protected override def doProduce(ctx: CodegenContext): String = {
+    val readBytes = metricTerm(ctx, "readBytes")
+    ctx.addPartitionInitializationStatement(
+      s"""
+         | org.apache.spark.TaskContext.get()
+         | .addTaskCompletionListener(new org.apache.spark.util.TaskCompletionListener() {
+         |            @Override
+         |            public void onTaskCompletion(org.apache.spark.TaskContext context) {
+         |                $readBytes.add(context.taskMetrics().inputMetrics().bytesRead());
+         |            }
+         |        });
+       """.stripMargin)
+    super.doProduce(ctx)
+  }
+
+  private def addReadBytesListener(metric: SQLMetric): Unit = {
+    TaskContext.get().addTaskCompletionListener(new TaskCompletionListener {
+      override def onTaskCompletion(context: TaskContext): Unit = {
+        metric.add(context.taskMetrics().inputMetrics.bytesRead)
+      }
+    })
   }
 }
