@@ -243,49 +243,6 @@ class MemoryStoreSuite
     assert(memoryStore.currentUnrollMemoryForThisTask === 0) // close released the unroll memory
   }
 
-  test("remove qps") {
-    val (memoryStore, blockInfoManager) = makeMemoryStore(12000000000L)
-    val smallList = List.fill(40)(new Array[Byte](100))
-    val bigList = List.fill(40)(new Array[Byte](1000))
-    assert(memoryStore.currentUnrollMemoryForThisTask === 0)
-    def bigIterator: Iterator[Any] = bigList.iterator.asInstanceOf[Iterator[Any]]
-    def smallIterator: Iterator[Any] = smallList.iterator.asInstanceOf[Iterator[Any]]
-
-    def putIteratorAsValues[T](
-                                blockId: BlockId,
-                                iter: Iterator[T],
-                                classTag: ClassTag[T]): Either[PartiallyUnrolledIterator[T], Long] = {
-      assert(blockInfoManager.lockNewBlockForWriting(
-        blockId,
-        new BlockInfo(StorageLevel.MEMORY_ONLY, classTag, tellMaster = false)))
-      val res = memoryStore.putIteratorAsValues(blockId, iter, classTag)
-      blockInfoManager.unlock(blockId)
-      res
-    }
-
-    val range = Range(1, 2000000)
-    range.foreach{
-      id =>
-        putIteratorAsValues(s"b$id", smallIterator, ClassTag.Any)
-    }
-    val service = Executors.newFixedThreadPool(10)
-    val semaphore = new Semaphore(0)
-    val l = System.currentTimeMillis()
-    service.submit(new RangeRunnable(1, 2000000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(200001, 400000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(400001, 600000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(600001, 800000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(800001, 1000000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(1000001, 1200000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(1200001, 1400000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(1400001, 1600000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(1600001, 1800000, blockInfoManager, memoryStore, semaphore))
-    service.submit(new RangeRunnable(1800001, 2000000, blockInfoManager, memoryStore, semaphore))
-    semaphore.acquire(10)
-    println((System.currentTimeMillis() - l))
-
-  }
-
   class RangeRunnable(start: Int, end: Int, blockInfoManager: BlockInfoManager,
                       memoryStore: MemoryStore, semaphore: Semaphore) extends Runnable{
     override def run(): Unit = {
