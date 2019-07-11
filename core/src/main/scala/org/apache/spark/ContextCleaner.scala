@@ -152,6 +152,10 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
       cleaningThread.interrupt()
     }
     cleaningThread.join()
+    cleanupExecutorPool.shutdown()
+    while (!cleanupExecutorPool.awaitTermination(1, TimeUnit.SECONDS)) {
+      log.info("the cleanup thread is running")
+    }
     periodicGCService.shutdown()
   }
 
