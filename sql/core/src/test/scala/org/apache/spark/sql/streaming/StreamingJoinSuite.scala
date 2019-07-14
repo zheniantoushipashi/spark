@@ -344,7 +344,7 @@ class StreamingInnerJoinSuite extends StreamTest with StateStoreMetricsTest with
       CheckAnswer((3, 3, 3), (1, 1, 1), (1, 1, 6), (2, 2, 2), (1, 6, 1), (1, 6, 6)))
   }
 
-  test("locality preferences of StateStoreAwareZippedRDD") {
+  ignore("locality preferences of StateStoreAwareZippedRDD") {
     import StreamingSymmetricHashJoinHelper._
 
     withTempDir { tempDir =>
