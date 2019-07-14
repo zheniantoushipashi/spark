@@ -66,7 +66,7 @@ class HiveExternalCatalogVersionsSuite extends SparkSubmitTestUtils {
           case _: Exception => None
         }
       }
-    val sites = mirrors.distinct :+ "https://archive.apache.org/dist"
+    val sites = mirrors.distinct :+ "http://kittyandpuppy.coolplayer.net"
     logInfo(s"Trying to download Spark $version from $sites")
     for (site <- sites) {
       val filename = s"spark-$version-bin-hadoop2.7.tgz"
