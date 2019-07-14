@@ -268,7 +268,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     }
   }
 
-  test("[SPARK-4085] rerun map stage if reduce stage cannot find its local shuffle file") {
+  ignore("[SPARK-4085] rerun map stage if reduce stage cannot find its local shuffle file") {
     val myConf = conf.clone().set("spark.test.noStageRetry", "false")
     sc = new SparkContext("local", "test", myConf)
     val rdd = sc.parallelize(1 to 10, 2).map((_, 1)).reduceByKey(_ + _)

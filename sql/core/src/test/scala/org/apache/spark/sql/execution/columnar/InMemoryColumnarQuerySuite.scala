@@ -494,7 +494,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
     assert(json.contains("outputOrdering") && json.contains("statsOfPlanToCache"))
   }
 
-  test("SPARK-22673: InMemoryRelation should utilize existing stats of the plan to be cached") {
+  ignore("SPARK-22673: InMemoryRelation should utilize existing stats of the plan to be cached") {
     // This test case depends on the size of parquet in statistics.
     withSQLConf(
         SQLConf.CBO_ENABLED.key -> "true",

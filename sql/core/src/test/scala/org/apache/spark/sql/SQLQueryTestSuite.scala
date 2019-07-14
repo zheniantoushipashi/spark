@@ -291,7 +291,8 @@ class SQLQueryTestSuite extends QueryTest with SharedSQLContext {
   }
 
   private def listTestCases(): Seq[TestCase] = {
-    listFilesRecursively(new File(inputFilePath)).map { file =>
+    listFilesRecursively(new File(inputFilePath))
+      .filter(file => file.getName.endsWith("sql")).map { file =>
       val resultFile = file.getAbsolutePath.replace(inputFilePath, goldenFilePath) + ".out"
       val absPath = file.getAbsolutePath
       val testCaseName = absPath.stripPrefix(inputFilePath).stripPrefix(File.separator)

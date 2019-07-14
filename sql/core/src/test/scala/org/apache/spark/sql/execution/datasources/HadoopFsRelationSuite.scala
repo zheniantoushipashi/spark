@@ -41,7 +41,7 @@ class HadoopFsRelationSuite extends QueryTest with SharedSQLContext {
     }
   }
 
-  test("SPARK-22790: spark.sql.sources.compressionFactor takes effect") {
+  ignore("SPARK-22790: spark.sql.sources.compressionFactor takes effect") {
     import testImplicits._
     Seq(1.0, 0.5).foreach { compressionFactor =>
       withSQLConf("spark.sql.sources.fileCompressionFactor" -> compressionFactor.toString,
