@@ -413,7 +413,7 @@ class DirectKafkaStreamSuite
   }
 
     // Test to verify the offsets can be recovered from Kafka
-  test("offset recovery from kafka") {
+  ignore("offset recovery from kafka") {
     val topic = "recoveryfromkafka"
     kafkaTestUtils.createTopic(topic)
 

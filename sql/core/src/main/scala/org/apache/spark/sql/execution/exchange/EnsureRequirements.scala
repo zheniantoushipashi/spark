@@ -59,7 +59,7 @@ case class EnsureRequirements(conf: SQLConf) extends Rule[SparkPlan] {
         // Right now, ExchangeCoordinator only support HashPartitionings.
         children.forall {
           case e @ ShuffleExchangeExec(hash: HashPartitioning, _, _, _) =>
-            e.isGenerated.get
+            e.isAEGenerated.get
           case child =>
             child.outputPartitioning match {
               case hash: HashPartitioning => true
@@ -86,9 +86,9 @@ case class EnsureRequirements(conf: SQLConf) extends Rule[SparkPlan] {
             targetPostShuffleInputSize,
             minNumPostShufflePartitions)
         children.zip(requiredChildDistributions).map {
-          case (e @ (ShuffleExchangeExec(_, _, _, Some(true))), _) =>
+          case (e @ ShuffleExchangeExec(_, _, _, Some(true)), _) =>
             // This child is an Exchange, we need to add the coordinator.
-            e.copy(coordinator = Some(coordinator), isGenerated = e.isGenerated)
+            e.copy(coordinator = Some(coordinator), isAEGenerated = e.isAEGenerated)
           case (child, distribution) =>
             // If this child is not an Exchange, we need to add an Exchange for now.
             // Ideally, we can try to avoid this Exchange. However, when we reach here,
