@@ -39,7 +39,7 @@ import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.tags.ExtendedHiveTest
 import org.apache.spark.util.{MutableURLClassLoader, Utils}
-import org.junit.Ignore
+import org.scalatest.Ignore
 
 /**
  * A simple set of tests that call the methods of a [[HiveClient]], loading different version

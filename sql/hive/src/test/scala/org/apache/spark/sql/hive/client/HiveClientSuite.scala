@@ -19,14 +19,14 @@ package org.apache.spark.sql.hive.client
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hive.conf.HiveConf
-import org.scalatest.BeforeAndAfterAll
-
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{BooleanType, IntegerType, LongType}
 
 // TODO: Refactor this to `HivePartitionFilteringSuite`
+@Ignore
 class HiveClientSuite(version: String)
     extends HiveVersionSuite(version) with BeforeAndAfterAll {
 
