@@ -45,8 +45,10 @@ object GenerateOrdering extends CodeGenerator[Seq[SortOrder], Ordering[InternalR
   protected def canonicalize(in: Seq[SortOrder]): Seq[SortOrder] =
     in.map(ExpressionCanonicalizer.execute(_).asInstanceOf[SortOrder])
 
-  protected def bind(in: Seq[SortOrder], inputSchema: Seq[Attribute]): Seq[SortOrder] =
-    in.map(BindReferences.bindReference(_, inputSchema))
+  protected def bind(in: Seq[SortOrder], inputSchema: Seq[Attribute]): Seq[SortOrder] = {
+    val attSeq = AttributeSeq(inputSchema)
+    in.map(BindReferences.bindReference(_, attSeq))
+  }
 
   /**
    * Creates a code gen ordering for sorting this schema, in ascending order.

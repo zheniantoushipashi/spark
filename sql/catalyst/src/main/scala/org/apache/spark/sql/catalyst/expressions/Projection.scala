@@ -126,7 +126,7 @@ object UnsafeProjection
 
   protected def toBoundExprs(
       exprs: Seq[Expression],
-      inputSchema: Seq[Attribute]): Seq[Expression] = {
+      inputSchema: AttributeSeq): Seq[Expression] = {
     exprs.map(BindReferences.bindReference(_, inputSchema))
   }
 

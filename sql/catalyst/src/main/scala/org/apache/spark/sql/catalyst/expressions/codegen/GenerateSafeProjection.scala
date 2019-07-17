@@ -40,8 +40,10 @@ object GenerateSafeProjection extends CodeGenerator[Seq[Expression], Projection]
   protected def canonicalize(in: Seq[Expression]): Seq[Expression] =
     in.map(ExpressionCanonicalizer.execute)
 
-  protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] =
-    in.map(BindReferences.bindReference(_, inputSchema))
+  protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] = {
+    val attSeq = AttributeSeq(inputSchema)
+    in.map(BindReferences.bindReference(_, attSeq))
+  }
 
   private def createCodeForStruct(
       ctx: CodegenContext,

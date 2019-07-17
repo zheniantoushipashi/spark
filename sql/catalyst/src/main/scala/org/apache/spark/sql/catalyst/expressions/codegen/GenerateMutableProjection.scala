@@ -34,8 +34,10 @@ object GenerateMutableProjection extends CodeGenerator[Seq[Expression], MutableP
   protected def canonicalize(in: Seq[Expression]): Seq[Expression] =
     in.map(ExpressionCanonicalizer.execute)
 
-  protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] =
-    in.map(BindReferences.bindReference(_, inputSchema))
+  protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] = {
+    val attSeq = AttributeSeq(inputSchema)
+    in.map(BindReferences.bindReference(_, attSeq))
+  }
 
   def generate(
       expressions: Seq[Expression],
