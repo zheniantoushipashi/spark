@@ -481,6 +481,39 @@ class ExchangeCoordinatorSuite extends SparkFunSuite with BeforeAndAfterAll {
     }
   }
 
+  test("SPARK-28231 adaptive execution should ignore RepartitionByExpression") {
+    val test = { spark: SparkSession =>
+      val df =
+        spark
+          .range(0, 1000, 1, numInputPartitions)
+          .repartition(20, col("id"))
+          .selectExpr("id % 20 as key", "id as value")
+      val agg = df.groupBy("key").count()
+
+      // Check the answer first.
+      checkAnswer(
+        agg,
+        spark.range(0, 20).selectExpr("id", "50 as cnt").collect())
+
+      // Then, let's look at the number of post-shuffle partitions estimated
+      // by the ExchangeCoordinator.
+      val exchanges = agg.queryExecution.executedPlan.collect {
+        case e: ShuffleExchangeExec => e
+      }
+      assert(exchanges.length === 2)
+      exchanges.foreach {
+        case e @ ShuffleExchangeExec(_, _, _, Some(true)) =>
+          assert(e.coordinator.isDefined)
+          assert(e.outputPartitioning.numPartitions === 5)
+        case e @ ShuffleExchangeExec(_, _, _, Some(false)) =>
+          assert(e.coordinator.isEmpty)
+          assert(e.outputPartitioning.numPartitions === 20)
+        case o =>
+      }
+    }
+    withSparkSession(test, 4, None)
+  }
+
   test("SPARK-24705 adaptive query execution works correctly when exchange reuse enabled") {
     val test = { spark: SparkSession =>
       spark.sql("SET spark.sql.exchange.reuse=true")
@@ -488,7 +521,8 @@ class ExchangeCoordinatorSuite extends SparkFunSuite with BeforeAndAfterAll {
       val resultDf = df.join(df, "key").join(df, "key")
       val sparkPlan = resultDf.queryExecution.executedPlan
       assert(sparkPlan.collect { case p: ReusedExchangeExec => p }.length == 1)
-      assert(sparkPlan.collect { case p @ ShuffleExchangeExec(_, _, Some(c)) => p }.length == 3)
+      assert(sparkPlan.collect {
+        case p @ ShuffleExchangeExec(_, _, Some(c), _) => p }.length == 3)
       checkAnswer(resultDf, Row(0, 0, 0, 0) :: Nil)
     }
     withSparkSession(test, 4, None)
