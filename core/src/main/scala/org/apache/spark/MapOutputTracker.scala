@@ -75,7 +75,7 @@ private class ShuffleStatus(numPartitions: Int) {
    * broadcast variable in order to keep it from being garbage collected and to allow for it to be
    * explicitly destroyed later on when the ShuffleMapStage is garbage-collected.
    */
-  private[this] var cachedSerializedBroadcast: Broadcast[Array[Byte]] = _
+  private[this] var cachedSerializedBroadcast: Broadcast[Array[MapStatus]] = _
 
   /**
    * Counter tracking the number of partitions that have output. This is a performance optimization
@@ -323,7 +323,7 @@ private[spark] class MapOutputTrackerMaster(
 
   // The size at which we use Broadcast to send the map output statuses to the executors
   private val minSizeForBroadcast =
-    conf.getSizeAsBytes("spark.shuffle.mapOutput.minSizeForBroadcast", "512k").toInt
+    conf.get("spark.shuffle.mapOutput.minSizeForBroadcast", "500").toInt
 
   /** Whether to compute locality preferences for reduce tasks */
   private val shuffleLocalityEnabled = conf.getBoolean("spark.shuffle.reduceLocality.enabled", true)
@@ -361,16 +361,6 @@ private[spark] class MapOutputTrackerMaster(
     pool
   }
 
-  // Make sure that we aren't going to exceed the max RPC message size by making sure
-  // we use broadcast to send large map output statuses.
-  if (minSizeForBroadcast > maxRpcMessageSize) {
-    val msg = s"spark.shuffle.mapOutput.minSizeForBroadcast ($minSizeForBroadcast bytes) must " +
-      s"be <= spark.rpc.message.maxSize ($maxRpcMessageSize bytes) to prevent sending an rpc " +
-      "message that is too large."
-    logError(msg)
-    throw new IllegalArgumentException(msg)
-  }
-
   def post(message: GetMapOutputMessage): Unit = {
     mapOutputRequests.offer(message)
   }
@@ -390,7 +380,7 @@ private[spark] class MapOutputTrackerMaster(
             val context = data.context
             val shuffleId = data.shuffleId
             val hostPort = context.senderAddress.hostPort
-            logDebug("Handling request to send map output locations for shuffle " + shuffleId +
+            logInfo("Handling request to send map output locations for shuffle " + shuffleId +
               " to " + hostPort)
             val shuffleStatus = shuffleStatuses.get(shuffleId).head
             context.reply(
@@ -425,6 +415,7 @@ private[spark] class MapOutputTrackerMaster(
 
   /** Unregister map output information of the given shuffle, mapper and block manager */
   def unregisterMapOutput(shuffleId: Int, mapId: Int, bmAddress: BlockManagerId) {
+    logInfo(s"Unregister MapOutput, shuffleId $shuffleId, mapId $mapId, bmAddress $BlockManagerId.")
     shuffleStatuses.get(shuffleId) match {
       case Some(shuffleStatus) =>
         shuffleStatus.removeMapOutput(mapId, bmAddress)
@@ -436,6 +427,7 @@ private[spark] class MapOutputTrackerMaster(
 
   /** Unregister all map output information of the given shuffle. */
   def unregisterAllMapOutput(shuffleId: Int) {
+    logInfo(s"Unregister all MapOutput, shuffleId $shuffleId.")
     shuffleStatuses.get(shuffleId) match {
       case Some(shuffleStatus) =>
         shuffleStatus.removeOutputsByFilter(x => true)
@@ -448,6 +440,7 @@ private[spark] class MapOutputTrackerMaster(
 
   /** Unregister shuffle data */
   def unregisterShuffle(shuffleId: Int) {
+    logInfo(s"Unregister Shuffle, shuffleId $shuffleId.")
     shuffleStatuses.remove(shuffleId).foreach { shuffleStatus =>
       shuffleStatus.invalidateSerializedMapOutputStatusCache()
     }
@@ -458,6 +451,7 @@ private[spark] class MapOutputTrackerMaster(
    * outputs which are served by an external shuffle server (if one exists).
    */
   def removeOutputsOnHost(host: String): Unit = {
+    logInfo(s"Remove Outputs on host $host.")
     shuffleStatuses.valuesIterator.foreach { _.removeOutputsOnHost(host) }
     incrementEpoch()
   }
@@ -468,6 +462,7 @@ private[spark] class MapOutputTrackerMaster(
    * registered with this execId.
    */
   def removeOutputsOnExecutor(execId: String): Unit = {
+    logInfo(s"Remove Outputs on executor $execId.")
     shuffleStatuses.valuesIterator.foreach { _.removeOutputsOnExecutor(execId) }
     incrementEpoch()
   }
@@ -791,23 +786,29 @@ private[spark] object MapOutputTracker extends Logging {
   // it to reduce tasks. We do this by compressing the serialized bytes using GZIP. They will
   // generally be pretty compressible because many map outputs will be on the same hostname.
   def serializeMapStatuses(statuses: Array[MapStatus], broadcastManager: BroadcastManager,
-      isLocal: Boolean, minBroadcastSize: Int): (Array[Byte], Broadcast[Array[Byte]]) = {
-    val out = new ByteArrayOutputStream
-    out.write(DIRECT)
-    val objOut = new ObjectOutputStream(new GZIPOutputStream(out))
-    Utils.tryWithSafeFinally {
-      // Since statuses can be modified in parallel, sync on it
-      statuses.synchronized {
-        objOut.writeObject(statuses)
+      isLocal: Boolean, minBroadcastSize: Int): (Array[Byte], Broadcast[Array[MapStatus]]) = {
+
+    val out = new org.apache.commons.io.output.ByteArrayOutputStream
+    if (statuses.length < minBroadcastSize) {
+      out.reset()
+      out.write(DIRECT)
+      val objOut = new ObjectOutputStream(new GZIPOutputStream(out))
+      Utils.tryWithSafeFinally {
+        // Since statuses can be modified in parallel, sync on it
+        statuses.synchronized {
+          objOut.writeObject(statuses)
+        }
+      } {
+        objOut.close()
       }
-    } {
-      objOut.close()
-    }
-    val arr = out.toByteArray
-    if (arr.length >= minBroadcastSize) {
+      val arr = out.toByteArray
+      logInfo("Direct serialize mapstatuses size = " + arr.length +
+        ", statuses size = " + statuses.length)
+      (arr, null)
+    } else {
       // Use broadcast instead.
       // Important arr(0) is the tag == DIRECT, ignore that while deserializing !
-      val bcast = broadcastManager.newBroadcast(arr, isLocal, null)
+      val bcast = broadcastManager.newBroadcast(statuses, isLocal, null)
       // toByteArray creates copy, so we can reuse out
       out.reset()
       out.write(BROADCAST)
@@ -815,10 +816,9 @@ private[spark] object MapOutputTracker extends Logging {
       oos.writeObject(bcast)
       oos.close()
       val outArr = out.toByteArray
-      logInfo("Broadcast mapstatuses size = " + outArr.length + ", actual size = " + arr.length)
+      logInfo("Broadcast mapstatuses size = " + outArr.length +
+        ", statuses size = " + statuses.length)
       (outArr, bcast)
-    } else {
-      (arr, null)
     }
   }
 
@@ -842,11 +842,11 @@ private[spark] object MapOutputTracker extends Logging {
       case BROADCAST =>
         // deserialize the Broadcast, pull .value array out of it, and then deserialize that
         val bcast = deserializeObject(bytes, 1, bytes.length - 1).
-          asInstanceOf[Broadcast[Array[Byte]]]
+          asInstanceOf[Broadcast[Array[MapStatus]]]
         logInfo("Broadcast mapstatuses size = " + bytes.length +
           ", actual size = " + bcast.value.length)
         // Important - ignore the DIRECT tag ! Start from offset 1
-        deserializeObject(bcast.value, 1, bcast.value.length - 1).asInstanceOf[Array[MapStatus]]
+        bcast.value
       case _ => throw new IllegalArgumentException("Unexpected byte tag = " + bytes(0))
     }
   }

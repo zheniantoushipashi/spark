@@ -196,15 +196,6 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     rpcEnv.shutdown()
   }
 
-  test("min broadcast size exceeds max RPC message size") {
-    val newConf = new SparkConf
-    newConf.set("spark.rpc.message.maxSize", "1")
-    newConf.set("spark.rpc.askTimeout", "1") // Fail fast
-    newConf.set("spark.shuffle.mapOutput.minSizeForBroadcast", Int.MaxValue.toString)
-
-    intercept[IllegalArgumentException] { newTrackerMaster(newConf) }
-  }
-
   test("getLocationsWithLargestOutputs with multiple outputs in same machine") {
     val rpcEnv = createRpcEnv("test")
     val tracker = newTrackerMaster()
@@ -244,7 +235,7 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     val newConf = new SparkConf
     newConf.set("spark.rpc.message.maxSize", "1")
     newConf.set("spark.rpc.askTimeout", "1") // Fail fast
-    newConf.set("spark.shuffle.mapOutput.minSizeForBroadcast", "10240") // 10 KB << 1MB framesize
+    newConf.set("spark.shuffle.mapOutput.minSizeForBroadcast", "99") // 10 KB << 1MB framesize
 
     // needs TorrentBroadcast so need a SparkContext
     withSpark(new SparkContext("local", "MapOutputTrackerSuite", newConf)) { sc =>
