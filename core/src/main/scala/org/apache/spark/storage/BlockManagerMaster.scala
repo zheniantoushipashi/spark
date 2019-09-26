@@ -132,8 +132,25 @@ class BlockManagerMaster(
     }
   }
 
+
+  def hasShuffleBlock(executorId: String): Boolean = {
+    logDebug(s"call hasShuffleBlock method for executorId: $executorId")
+    try {
+      val future = driverEndpoint.askSync[Future[Boolean]](HasShuffleBlock(executorId))
+      future.failed.foreach(e =>
+        logWarning(s"Failed to check executor shuffle block for $executorId - ${e.getMessage}", e)
+      )(ThreadUtils.sameThread)
+      timeout.awaitResult(future)
+    } catch {
+      case e: Exception =>
+        logError(s"Failed to check executor shuffle block  for $executorId - ${e.getMessage}", e)
+        return false
+    }
+  }
+
   /** Remove all blocks belonging to the given shuffle. */
   def removeShuffle(shuffleId: Int, blocking: Boolean) {
+    logInfo(s"call removeShuffle method for shuffleId: $shuffleId")
     val future = driverEndpoint.askSync[Future[Seq[Boolean]]](RemoveShuffle(shuffleId))
     future.failed.foreach(e =>
       logWarning(s"Failed to remove shuffle $shuffleId - ${e.getMessage}", e)
