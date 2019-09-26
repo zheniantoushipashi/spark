@@ -344,7 +344,6 @@ private[spark] class MapOutputTrackerMaster(
   // Statuses are dropped only by explicit de-registering.
   // Exposed for testing
   val shuffleStatuses = new ConcurrentHashMap[Int, ShuffleStatus]().asScala
-
   private val maxRpcMessageSize = RpcUtils.maxMessageSizeBytes(conf)
 
   // requests for map output statuses
@@ -757,6 +756,7 @@ private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTr
 
   /** Unregister shuffle data. */
   def unregisterShuffle(shuffleId: Int): Unit = {
+    logInfo(s"slave unregisterShuffle: $shuffleId")
     mapStatuses.remove(shuffleId)
   }
 
