@@ -210,12 +210,6 @@ private[spark] class ExecutorAllocationManager(
     if (cachedExecutorIdleTimeoutS < 0) {
       throw new SparkException("spark.dynamicAllocation.cachedExecutorIdleTimeout must be >= 0!")
     }
-    // Require external shuffle service for dynamic allocation
-    // Otherwise, we may lose shuffle files when killing executors
-    if (!conf.get(config.SHUFFLE_SERVICE_ENABLED) && !testing) {
-      throw new SparkException("Dynamic allocation of executors requires the external " +
-        "shuffle service. You may enable this through spark.shuffle.service.enabled.")
-    }
     if (tasksPerExecutorForFullParallelism == 0) {
       throw new SparkException("spark.executor.cores must not be < spark.task.cpus.")
     }
@@ -601,7 +595,11 @@ private[spark] class ExecutorAllocationManager(
    */
   private def onExecutorIdle(executorId: String): Unit = synchronized {
     if (executorIds.contains(executorId)) {
-      if (!removeTimes.contains(executorId) && !executorsPendingToRemove.contains(executorId)) {
+      val hasShuffleBlock = blockManagerMaster.hasShuffleBlock(executorId)
+      logInfo(s"Current executor: $executorId determines " +
+        s"whether there are shuffleBlock results: $hasShuffleBlock")
+      if (!removeTimes.contains(executorId) && !executorsPendingToRemove.contains(executorId)
+        && !hasShuffleBlock) {
         // Note that it is not necessary to query the executors since all the cached
         // blocks we are concerned with are reported to the driver. Note that this
         // does not include broadcast blocks.

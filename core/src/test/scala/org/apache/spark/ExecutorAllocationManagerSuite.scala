@@ -1092,6 +1092,8 @@ class ExecutorAllocationManagerSuite
     val initialExecutors = 1
     val maxExecutors = 2
     val conf = new SparkConf()
+      .setMaster("myDummyLocalExternalClusterManager")
+      .setAppName("test-executor-allocation-manager")
       .set("spark.dynamicAllocation.enabled", "true")
       .set(config.SHUFFLE_SERVICE_ENABLED.key, "true")
       .set("spark.dynamicAllocation.minExecutors", minExecutors.toString)
@@ -1100,6 +1102,8 @@ class ExecutorAllocationManagerSuite
       .set("spark.dynamicAllocation.schedulerBacklogTimeout", "1000ms")
       .set("spark.dynamicAllocation.sustainedSchedulerBacklogTimeout", "1000ms")
       .set("spark.dynamicAllocation.executorIdleTimeout", s"3000ms")
+    val sc = new SparkContext(conf)
+    contexts += sc
     val mockAllocationClient = mock(classOf[ExecutorAllocationClient])
     val mockBMM = mock(classOf[BlockManagerMaster])
     val manager = new ExecutorAllocationManager(
@@ -1126,12 +1130,22 @@ class ExecutorAllocationManagerSuite
 
     // have one task finish -- we should adjust the target number of executors down
     // but we should *not* kill any executors yet
+    // now we cross the idle timeout for executor-1, but blockManagerMaster
+    // check slave hasShuffleBlock return true , so can not killExecutors
+    when(mockBMM.hasShuffleBlock("executor-1")).thenReturn(true)
     manager.listener.onTaskEnd(SparkListenerTaskEnd(0, 0, null, Success, taskInfo0, null))
     assert(maxNumExecutorsNeeded(manager) === 1)
     assert(numExecutorsTarget(manager) === 2)
-    clock.advance(1000)
+    clock.advance(3000)
     manager invokePrivate _updateAndSyncNumExecutorsTarget(clock.getTimeMillis())
     assert(numExecutorsTarget(manager) === 1)
+    verify(mockAllocationClient, never).killExecutors(any(), any(), any(), any())
+
+    // now we check slave  hasShuffleBlock return false , but kill time not yet
+    when(mockBMM.hasShuffleBlock("executor-1")).thenReturn(false)
+    manager invokePrivate _onExecutorIdle("executor-1")
+    clock.advance(1000)
+    schedule(manager)
     verify(mockAllocationClient, never).killExecutors(any(), any(), any(), any())
 
     // now we cross the idle timeout for executor-1, so we kill it.  the really important

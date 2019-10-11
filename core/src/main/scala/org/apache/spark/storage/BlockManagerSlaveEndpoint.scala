@@ -19,11 +19,12 @@ package org.apache.spark.storage
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import org.apache.spark.{MapOutputTracker, SparkEnv}
+import org.apache.spark.{MapOutputTracker, MapOutputTrackerWorker, SparkEnv}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc.{RpcCallContext, RpcEnv, ThreadSafeRpcEndpoint}
 import org.apache.spark.storage.BlockManagerMessages._
 import org.apache.spark.util.{ThreadUtils, Utils}
+
 
 /**
  * An RpcEndpoint to take commands from the master to execute options. For example,
@@ -53,7 +54,22 @@ class BlockManagerSlaveEndpoint(
         blockManager.removeRdd(rddId)
       }
 
+    case HasShuffleBlock(executorId) =>
+      logDebug(s"slave receive HasShuffleBlock message for  executorId: $executorId")
+      context.reply{
+        if (mapOutputTracker == null) {
+          false
+        } else {
+          val mapStatuses = mapOutputTracker.asInstanceOf[MapOutputTrackerWorker].mapStatuses
+          logDebug(s"current mapOutputTracker shuffleIds: ${mapStatuses.keySet.toString()}")
+          val nonEmpty = mapStatuses.nonEmpty
+          logDebug(s"executorId: $executorId mapOutputTracker" +
+            s" HasShuffleBlock check result: $nonEmpty")
+          nonEmpty
+        }
+      }
     case RemoveShuffle(shuffleId) =>
+      logDebug(s"slave receive RemoveShuffle massage to remove shuffleId: $shuffleId")
       doAsync[Boolean]("removing shuffle " + shuffleId, context) {
         if (mapOutputTracker != null) {
           mapOutputTracker.unregisterShuffle(shuffleId)

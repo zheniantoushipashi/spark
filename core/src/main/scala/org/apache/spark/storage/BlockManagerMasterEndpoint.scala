@@ -112,6 +112,7 @@ class BlockManagerMasterEndpoint(
       context.reply(removeRdd(rddId))
 
     case RemoveShuffle(shuffleId) =>
+      logDebug(s"master receive RemoveShuffle massage for shuffleId: $shuffleId")
       context.reply(removeShuffle(shuffleId))
 
     case RemoveBroadcast(broadcastId, removeFromDriver) =>
@@ -131,6 +132,10 @@ class BlockManagerMasterEndpoint(
 
     case BlockManagerHeartbeat(blockManagerId) =>
       context.reply(heartbeatReceived(blockManagerId))
+
+    case HasShuffleBlock(executorId) =>
+      logDebug(s"master receive HasShuffleBlock massage for executorId: $executorId")
+      context.reply(hasShuffleBlock(executorId))
 
     case HasCachedBlocks(executorId) =>
       blockManagerIdByExecutor.get(executorId) match {
@@ -172,6 +177,17 @@ class BlockManagerMasterEndpoint(
     }.toSeq
 
     Future.sequence(futures)
+  }
+
+  private  def hasShuffleBlock(executorId: String): Future[Boolean] = {
+    getExecutorEndpointRef(executorId) match {
+      case Some(ref) =>
+        logInfo(s"blockManager master ask HasShuffleBlock " +
+          s" $executorId  message to executor")
+        ref.ask[Boolean](HasShuffleBlock(executorId))
+      case None =>
+        Future.successful(false)
+    }
   }
 
   private def removeShuffle(shuffleId: Int): Future[Seq[Boolean]] = {
