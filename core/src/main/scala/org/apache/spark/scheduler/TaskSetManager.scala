@@ -734,27 +734,37 @@ private[spark] class TaskSetManager(
     }
   }
 
+  private def releaseTotalResultSize(result: DirectTaskResult[_]) = {
+    val resultSizeAcc = result.accumUpdates.find(a =>
+      a.name == Some(InternalAccumulator.RESULT_SIZE))
+    if (resultSizeAcc.isDefined) {
+      totalResultSize -= resultSizeAcc.get.asInstanceOf[LongAccumulator].value
+    }
+  }
+
   /**
    * Marks a task as successful and notifies the DAGScheduler that the task has ended.
    */
   def handleSuccessfulTask(tid: Long, result: DirectTaskResult[_]): Unit = {
     val info = taskInfos(tid)
     val index = info.index
+    val task = tasks(index)
     // Check if any other attempt succeeded before this and this attempt has not been handled
     if (successful(index) && killedByOtherAttempt.contains(tid)) {
       // Undo the effect on calculatedTasks and totalResultSize made earlier when
       // checking if can fetch more results
       calculatedTasks -= 1
-      val resultSizeAcc = result.accumUpdates.find(a =>
-        a.name == Some(InternalAccumulator.RESULT_SIZE))
-      if (resultSizeAcc.isDefined) {
-        totalResultSize -= resultSizeAcc.get.asInstanceOf[LongAccumulator].value
-      }
+      releaseTotalResultSize(result)
 
       // Handle this task as a killed task
       handleFailedTask(tid, TaskState.KILLED,
         TaskKilled("Finish but did not commit due to another attempt succeeded"))
       return
+    }
+
+    task match {
+      case smt: ShuffleMapTask => releaseTotalResultSize(result)
+      case _ => None
     }
 
     info.markFinished(TaskState.FINISHED, clock.getTimeMillis())
