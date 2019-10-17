@@ -94,9 +94,6 @@ object SQLExecution extends Logging{
       executionIdToQueryExecution.remove(executionId)
       sc.setLocalProperty(EXECUTION_ID_KEY, oldExecutionId)
       SparkEnv.get.broadcastManager.cleanBroadCast(executionId.toString)
-      logDebug(s"start clean shuffle data for executionId: $executionId")
-      sc.cleaner.get.cleanupShuffle(executionId.toString)
-      logDebug(s"finish clean shuffle data for executionId: $executionId")
     }
   }
 
