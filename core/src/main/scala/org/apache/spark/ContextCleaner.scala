@@ -77,8 +77,6 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
 
   private val periodicGCService: ScheduledExecutorService =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("context-cleaner-periodic-gc")
-
-  var queryShuffle = new ConcurrentHashMap[String, HashSet[Int]]()
   /**
    * How often to trigger a garbage collection in this JVM.
    *
@@ -173,17 +171,6 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
 
   /** Register a ShuffleDependency for cleanup when it is garbage collected. */
   def registerShuffleForCleanup(shuffleDependency: ShuffleDependency[_, _, _]): Unit = {
-    Option(SparkContext.getActive.get.getLocalProperty("spark.sql.execution.id")) match {
-      case Some(executionId) =>
-        if (queryShuffle.containsKey(executionId)) {
-          queryShuffle.get(executionId).add(shuffleDependency.shuffleId)
-        } else {
-          queryShuffle.put(executionId, new HashSet[Int]()+=(shuffleDependency.shuffleId))
-        }
-        logDebug(s"add  shuffle id ${shuffleDependency.shuffleId}" +
-          s" for executionId: $executionId")
-      case _ =>
-    }
     registerForCleanup(shuffleDependency, CleanShuffle(shuffleDependency.shuffleId))
   }
 
@@ -217,25 +204,6 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
       case e: Exception => logError("Error in cleaning main thread", e)
     }
     }
-  }
-
-  def cleanupShuffle(executionId: String): Unit = {
-      logInfo(s"Cleaning shuffle for executionId: $executionId")
-      if (queryShuffle.containsKey(executionId)) {
-        queryShuffle.get(executionId).foreach {  shuffleId =>
-          logDebug(s"Cleaning shuffleId: $shuffleId for executionId: $executionId")
-        cleanupExecutorPool.submit(new Runnable {
-            override def run(): Unit = {
-              try {
-                doCleanupShuffle(shuffleId, blocking = blockOnShuffleCleanupTasks)
-              } catch {
-                case ie: InterruptedException if stopped => // ignore
-                case e: Exception => logError("Error in cleaning shuffle", e)
-              }
-            }
-          })
-        }
-      }
   }
 
   private def runtCleanTask(ref: CleanupTaskWeakReference) = {
