@@ -20,7 +20,6 @@ package org.apache.spark.sql.execution
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-import org.apache.spark.MapOutputTrackerMaster
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
@@ -81,7 +80,8 @@ object SQLExecution extends Logging{
           SparkPlanInfo.fromSparkPlan(queryExecution.executedPlan), System.currentTimeMillis()))
 
         sc.listenerBus.post(PostQueryExecutionForKylin(
-          sc.getLocalProperty(N_EXECUTION_ID_KEY),
+          sc.getLocalProperties,
+          executionId,
           queryExecution))
         try {
           body

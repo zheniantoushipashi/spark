@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.ui
 
+import java.util.Properties
+
 import com.fasterxml.jackson.databind.JavaType
 import com.fasterxml.jackson.databind.`type`.TypeFactory
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
@@ -38,7 +40,8 @@ case class SparkListenerSQLExecutionStart(
 
 @DeveloperApi
 case class PostQueryExecutionForKylin(
-    nExecutionId: String = "",
+    localProperties: Properties,
+    executionId: Long,
     queryExecution: QueryExecution = null)
   extends SparkListenerEvent {
 
