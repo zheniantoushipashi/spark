@@ -849,8 +849,47 @@ private[spark] class TaskSchedulerImpl(
     }
   }
 
-}
+  def getBlacklist: (Array[String], Array[String]) = synchronized {
+    if (BlacklistTracker.isBlacklistEnabled(sc.conf)) {
+      blacklistTrackerOpt.get.getBlacklist
+    } else {
+      logWarning("Blacklist is off, can not get blacklist.")
+      (Array.empty, Array.empty)
+    }
+  }
 
+  def addExecutorToBlackListManually(executorId: String, node: String): Unit = synchronized {
+    if (BlacklistTracker.isBlacklistEnabled(sc.conf)) {
+      blacklistTrackerOpt.get.addExecutorToBlackListManually(executorId, node)
+    } else {
+      logWarning("Blacklist is off, can not add executor to blacklist.")
+    }
+  }
+
+  def addNodeToBlackListManually(node: String): Unit = synchronized {
+    if (BlacklistTracker.isBlacklistEnabled(sc.conf)) {
+      blacklistTrackerOpt.get.addNodeToBlackListManually(node)
+    } else {
+      logWarning("Blacklist is off, can not add node to blacklist.")
+    }
+  }
+
+  def removeExecutorFromBlackListManually(executorId: String): Unit = synchronized {
+    if (BlacklistTracker.isBlacklistEnabled(sc.conf)) {
+      blacklistTrackerOpt.get.removeExecutorFromBlackListManually(executorId)
+    } else {
+      logWarning("Blacklist is off, can not remove executor from blacklist.")
+    }
+  }
+
+  def removeNodeFromBlackListManually(node: String): Unit = synchronized {
+    if (BlacklistTracker.isBlacklistEnabled(sc.conf)) {
+      blacklistTrackerOpt.get.removeNodeFromBlackListManually(node)
+    } else {
+      logWarning("Blacklist is off, can not remove node from blacklist.")
+    }
+  }
+}
 
 private[spark] object TaskSchedulerImpl {
 

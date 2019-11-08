@@ -496,6 +496,20 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     executorDataMap.keySet.toSeq
   }
 
+  def getHostByExecutor(executorId: String): String = synchronized {
+    val maybeExecutorData = executorDataMap.get(executorId)
+    if (maybeExecutorData.isDefined) {
+      maybeExecutorData.get.executorHost
+    } else {
+      logWarning(s"Can not get host by executor $executorId.")
+      ""
+    }
+  }
+
+  def getHosts: Set[String] = synchronized {
+    executorDataMap.values.map(_.executorHost).toSet
+  }
+
   override def maxNumConcurrentTasks(): Int = {
     executorDataMap.values.map { executor =>
       executor.totalCores / scheduler.CPUS_PER_TASK
