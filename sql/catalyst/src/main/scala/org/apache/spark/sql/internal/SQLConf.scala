@@ -247,6 +247,18 @@ object SQLConf {
     .intConf
     .createWithDefault(200)
 
+  val SHUFFLE_MAX_TARGET_POSTSHUFFLE_INPUT_SIZE =
+    buildConf("spark.sql.adaptive.shuffle.maxTargetPostShuffleInputSize")
+      .doc("The target post-shuffle input size in bytes of a task.")
+      .bytesConf(ByteUnit.BYTE)
+      .createWithDefault(-1L)
+
+  val ALLOW_ADAPTIVE_WHEN_REPARTITION =
+    buildConf("spark.sql.adaptive.enabled.when.repartition")
+      .doc("When true, enable adaptive query execution in repartition.")
+      .booleanConf
+      .createWithDefault(false)
+
   val SHUFFLE_TARGET_POSTSHUFFLE_INPUT_SIZE =
     buildConf("spark.sql.adaptive.shuffle.targetPostShuffleInputSize")
       .doc("The target post-shuffle input size in bytes of a task.")
@@ -1649,6 +1661,12 @@ class SQLConf extends Serializable with Logging {
 
   def targetPostShuffleInputSize: Long =
     getConf(SHUFFLE_TARGET_POSTSHUFFLE_INPUT_SIZE)
+
+  def maxTargetPostShuffleInputSize: Long =
+    getConf(SHUFFLE_MAX_TARGET_POSTSHUFFLE_INPUT_SIZE)
+
+  def allowAEwhenRepartition: Boolean =
+    getConf(ALLOW_ADAPTIVE_WHEN_REPARTITION)
 
   def adaptiveExecutionEnabled: Boolean = getConf(ADAPTIVE_EXECUTION_ENABLED)
 

@@ -502,10 +502,10 @@ class ExchangeCoordinatorSuite extends SparkFunSuite with BeforeAndAfterAll {
       }
       assert(exchanges.length === 2)
       exchanges.foreach {
-        case e @ ShuffleExchangeExec(_, _, _, Some(true)) =>
+        case e @ ShuffleExchangeExec(_, _, _, Some(false)) =>
           assert(e.coordinator.isDefined)
           assert(e.outputPartitioning.numPartitions === 5)
-        case e @ ShuffleExchangeExec(_, _, _, Some(false)) =>
+        case e @ ShuffleExchangeExec(_, _, _, Some(true)) =>
           assert(e.coordinator.isEmpty)
           assert(e.outputPartitioning.numPartitions === 20)
         case o =>
