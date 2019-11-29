@@ -55,7 +55,7 @@ case class CollectLimitExec(limit: Int, child: SparkPlan) extends UnaryExecNode 
 case class CollectLimitRangeExec(start: Int, end: Int, child: SparkPlan) extends UnaryExecNode {
   override def output: Seq[Attribute] = child.output
   override def outputPartitioning: Partitioning = SinglePartition
-  override def executeCollect(): Array[InternalRow] = child.executeTake(end)
+  override def executeCollect(): Array[InternalRow] = child.executeTake(end).drop(start)
   private val serializer: Serializer = new UnsafeRowSerializer(child.output.size)
   protected override def doExecute(): RDD[InternalRow] = {
     val locallyLimited = child.execute().mapPartitionsInternal(_.take(end))
