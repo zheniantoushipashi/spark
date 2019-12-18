@@ -81,17 +81,14 @@ class ExternalCatalogWithListener(delegate: ExternalCatalog)
     delegate.setCurrentDatabase(db)
   }
 
-  /** KAP#16210 */
   override def listRoleUsers(roleName: String): Seq[String] = {
     delegate.listRoleUsers(roleName)
   }
 
-  /** KAP#16210 */
   override def listUserRoles(userName: String): Seq[String] = {
     delegate.listUserRoles(userName)
   }
 
-  /** KAP#16210 */
   override def getReadablePrincipals(dbName: String,
                                      tableName: String): Map[String, Seq[String]] = {
     delegate.getReadablePrincipals(dbName, tableName)

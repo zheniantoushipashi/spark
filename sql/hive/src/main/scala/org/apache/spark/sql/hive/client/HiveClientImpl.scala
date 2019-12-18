@@ -687,7 +687,6 @@ private[hive] class HiveClientImpl(
     client.getTablesByPattern(dbName, pattern).asScala
   }
 
-  /** KAP#16210 */
   override def listRoleUsers(roleName: String): Seq[String] = withHiveState {
     val resp = client.getMSC.get_principals_in_role(new GetPrincipalsInRoleRequest(roleName))
     if (resp == null || resp.getPrincipalGrants == null) {
@@ -699,7 +698,6 @@ private[hive] class HiveClientImpl(
       .map(_.getPrincipalName)
   }
 
-  /** KAP#16210 */
   override def listUserRoles(userName: String): Seq[String] = withHiveState {
     val resp = client.getMSC.list_roles(userName, PrincipalType.USER)
     if (resp == null) {
@@ -708,7 +706,6 @@ private[hive] class HiveClientImpl(
     resp.asScala.map(_.getRoleName)
   }
 
-  /** KAP#16210 */
   override def getReadablePrincipals(dbName: String,
                                      tableName: String): Map[String, Seq[String]] = withHiveState {
     val privileges = client.getMSC.list_privileges(null, null,
