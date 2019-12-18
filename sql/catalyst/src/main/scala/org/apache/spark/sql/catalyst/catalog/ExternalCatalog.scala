@@ -88,6 +88,15 @@ trait ExternalCatalog {
 
   def setCurrentDatabase(db: String): Unit
 
+  /** KAP#16210 */
+  def listRoleUsers(roleName: String): Seq[String]
+
+  /** KAP#16210 */
+  def listUserRoles(userName: String): Seq[String]
+
+  /** KAP#16210 */
+  def getReadablePrincipals(dbName: String, tableName: String): Map[String, Seq[String]]
+
   // --------------------------------------------------------------------------
   // Tables
   // --------------------------------------------------------------------------

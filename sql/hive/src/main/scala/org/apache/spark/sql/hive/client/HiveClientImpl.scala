@@ -30,8 +30,7 @@ import org.apache.hadoop.hive.common.StatsSetupConst
 import org.apache.hadoop.hive.conf.HiveConf
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars
 import org.apache.hadoop.hive.metastore.{TableType => HiveTableType}
-import org.apache.hadoop.hive.metastore.api.{Database => HiveDatabase, FieldSchema, Order}
-import org.apache.hadoop.hive.metastore.api.{SerDeInfo, StorageDescriptor}
+import org.apache.hadoop.hive.metastore.api.{Database => HiveDatabase, FieldSchema, GetPrincipalsInRoleRequest, HiveObjectRef, HiveObjectType, Order, PrincipalType, SerDeInfo, StorageDescriptor}
 import org.apache.hadoop.hive.ql.Driver
 import org.apache.hadoop.hive.ql.metadata.{Hive, Partition => HivePartition, Table => HiveTable}
 import org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer.HIVE_COLUMN_ORDER_ASC
@@ -686,6 +685,51 @@ private[hive] class HiveClientImpl(
 
   override def listTables(dbName: String, pattern: String): Seq[String] = withHiveState {
     client.getTablesByPattern(dbName, pattern).asScala
+  }
+
+  /** KAP#16210 */
+  override def listRoleUsers(roleName: String): Seq[String] = withHiveState {
+    val resp = client.getMSC.get_principals_in_role(new GetPrincipalsInRoleRequest(roleName))
+    if (resp == null || resp.getPrincipalGrants == null) {
+      return Seq.empty
+    }
+
+    resp.getPrincipalGrants.asScala
+      .filter(pg => PrincipalType.USER.equals(pg.getPrincipalType))
+      .map(_.getPrincipalName)
+  }
+
+  /** KAP#16210 */
+  override def listUserRoles(userName: String): Seq[String] = withHiveState {
+    val resp = client.getMSC.list_roles(userName, PrincipalType.USER)
+    if (resp == null) {
+      return Seq.empty
+    }
+    resp.asScala.map(_.getRoleName)
+  }
+
+  /** KAP#16210 */
+  override def getReadablePrincipals(dbName: String,
+                                     tableName: String): Map[String, Seq[String]] = withHiveState {
+    val privileges = client.getMSC.list_privileges(null, null,
+      new HiveObjectRef(HiveObjectType.TABLE, dbName, tableName, null, null))
+    if (privileges == null) {
+      return Map.empty
+    }
+    val userSet: mutable.HashSet[String] = mutable.HashSet()
+    val roleSet: mutable.HashSet[String] = mutable.HashSet()
+    val groupSet: mutable.HashSet[String] = mutable.HashSet()
+    privileges.asScala.foreach(pg => {
+      pg.getPrincipalType match {
+        case PrincipalType.USER => userSet.add(pg.getPrincipalName)
+        case PrincipalType.ROLE => roleSet.add(pg.getPrincipalName)
+        case PrincipalType.GROUP => groupSet.add(pg.getPrincipalName)
+        case _ => // do nothing
+      }
+    })
+    Map(PrincipalType.USER.name -> userSet.toSeq,
+      PrincipalType.ROLE.name -> roleSet.toSeq,
+      PrincipalType.GROUP.name -> groupSet.toSeq)
   }
 
   /**
