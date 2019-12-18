@@ -227,6 +227,19 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
     client.setCurrentDatabase(db)
   }
 
+  override def listRoleUsers(roleName: String): Seq[String] = withClient {
+    client.listRoleUsers(roleName)
+  }
+
+  override def listUserRoles(userName: String): Seq[String] = withClient {
+    client.listUserRoles(userName)
+  }
+
+  override def getReadablePrincipals(dbName: String,
+                                     tableName: String): Map[String, Seq[String]] = withClient {
+    client.getReadablePrincipals(dbName, tableName)
+  }
+
   // --------------------------------------------------------------------------
   // Tables
   // --------------------------------------------------------------------------
