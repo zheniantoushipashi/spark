@@ -642,7 +642,7 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
 
   /** Add the Yarn IP filter that is required for properly securing the UI. */
   private def addAmIpFilter(driver: Option[RpcEndpointRef]) = {
-    if (sparkConf.getBoolean("spark.am_filter.enabled", true)) {
+    if (sparkConf.getBoolean("spark.amIpFilter.enabled", true)) {
       val proxyBase = System.getenv(ApplicationConstants.APPLICATION_WEB_PROXY_BASE_ENV)
       val amFilter = "org.apache.hadoop.yarn.server.webproxy.amfilter.AmIpFilter"
       val params = client.getAmIpFilterParams(yarnConf, proxyBase)
