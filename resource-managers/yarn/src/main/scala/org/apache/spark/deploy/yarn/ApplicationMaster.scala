@@ -500,6 +500,16 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
   }
 
   private def runExecutorLauncher(): Unit = {
+    val classLoader = Thread.currentThread.getContextClassLoader
+    val configs = Array("core-site.xml", "hdfs-site.xml",
+      "hive-site.xml", "mapred-site.xml", "yarn-site.xml")
+    configs.foreach{ fileName =>
+      val url = classLoader.getResource(fileName)
+      if (url != null) {
+        val path = url.getPath
+        logInfo(path + " is used as " + fileName)
+      } else logInfo(fileName + " does not exist in the resources")
+    }
     val hostname = Utils.localHostName
     val amCores = sparkConf.get(AM_CORES)
     rpcEnv = RpcEnv.create("sparkYarnAM", hostname, hostname, -1, sparkConf, securityMgr,
@@ -632,16 +642,18 @@ private[spark] class ApplicationMaster(args: ApplicationMasterArguments) extends
 
   /** Add the Yarn IP filter that is required for properly securing the UI. */
   private def addAmIpFilter(driver: Option[RpcEndpointRef]) = {
-    val proxyBase = System.getenv(ApplicationConstants.APPLICATION_WEB_PROXY_BASE_ENV)
-    val amFilter = "org.apache.hadoop.yarn.server.webproxy.amfilter.AmIpFilter"
-    val params = client.getAmIpFilterParams(yarnConf, proxyBase)
-    driver match {
-      case Some(d) =>
-        d.send(AddWebUIFilter(amFilter, params.toMap, proxyBase))
+    if (sparkConf.getBoolean("spark.amIpFilter.enabled", true)) {
+      val proxyBase = System.getenv(ApplicationConstants.APPLICATION_WEB_PROXY_BASE_ENV)
+      val amFilter = "org.apache.hadoop.yarn.server.webproxy.amfilter.AmIpFilter"
+      val params = client.getAmIpFilterParams(yarnConf, proxyBase)
+      driver match {
+        case Some(d) =>
+          d.send(AddWebUIFilter(amFilter, params.toMap, proxyBase))
 
-      case None =>
-        System.setProperty("spark.ui.filters", amFilter)
-        params.foreach { case (k, v) => System.setProperty(s"spark.$amFilter.param.$k", v) }
+        case None =>
+          System.setProperty("spark.ui.filters", amFilter)
+          params.foreach { case (k, v) => System.setProperty(s"spark.$amFilter.param.$k", v) }
+      }
     }
   }
 

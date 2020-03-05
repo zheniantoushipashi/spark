@@ -159,9 +159,13 @@ private[spark] class Client(
       launcherBackend.connect()
       yarnClient.init(hadoopConf)
       yarnClient.start()
-
-      logInfo("Requesting a new application from cluster with %d NodeManagers"
-        .format(yarnClient.getYarnClusterMetrics.getNumNodeManagers))
+      try {
+        logInfo("Requesting a new application from cluster with %d NodeManagers"
+          .format(yarnClient.getYarnClusterMetrics.getNumNodeManagers))
+      } catch {
+        case th: Throwable =>
+          logWarning("Get cluster metrics error", th)
+      }
 
       // Get a new application from our RM
       val newApp = yarnClient.createApplication()
@@ -1269,6 +1273,10 @@ private object Client extends Logging {
       sparkConf: SparkConf,
       env: HashMap[String, String],
       extraClassPath: Option[String] = None): Unit = {
+    if (sparkConf.getBoolean("spark.yarn.user.hadoopConfClasspath.first", defaultValue = false)) {
+      addClasspathEntry(
+        buildPath(Environment.PWD.$$(), LOCALIZED_CONF_DIR, LOCALIZED_HADOOP_CONF_DIR), env)
+    }
     extraClassPath.foreach { cp =>
       addClasspathEntry(getClusterPath(sparkConf, cp), env)
     }
@@ -1315,12 +1323,13 @@ private object Client extends Logging {
     sys.env.get(ENV_DIST_CLASSPATH).foreach { cp =>
       addClasspathEntry(getClusterPath(sparkConf, cp), env)
     }
-
-    // Add the localized Hadoop config at the end of the classpath, in case it contains other
-    // files (such as configuration files for different services) that are not part of the
-    // YARN cluster's config.
-    addClasspathEntry(
-      buildPath(Environment.PWD.$$(), LOCALIZED_CONF_DIR, LOCALIZED_HADOOP_CONF_DIR), env)
+    if (!sparkConf.getBoolean("spark.yarn.user.hadoopConfClasspath.first", defaultValue = false)) {
+      // Add the localized Hadoop config at the end of the classpath, in case it contains other
+      // files (such as configuration files for different services) that are not part of the
+      // YARN cluster's config.
+      addClasspathEntry(
+        buildPath(Environment.PWD.$$(), LOCALIZED_CONF_DIR, LOCALIZED_HADOOP_CONF_DIR), env)
+    }
   }
 
   /**
