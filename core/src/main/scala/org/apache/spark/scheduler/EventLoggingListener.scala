@@ -111,48 +111,14 @@ private[spark] class EventLoggingListener(
     }
 
     if (!sparkConf.get(EVENT_LOG_ENABLE_ROLLING)) {
-      val workingPath = logPath + IN_PROGRESS
-      val path = new Path(workingPath)
-      val uri = path.toUri
-      val defaultFs = FileSystem.getDefaultUri(hadoopConf).getScheme
-      val isDefaultLocal = defaultFs == null || defaultFs == "file"
-
-      if (shouldOverwrite && fileSystem.delete(path, true)) {
-        logWarning(s"Event log $path already exists. Overwriting...")
-      }
-
-      /* The Hadoop LocalFileSystem (r1.0.4) has known issues with syncing (HADOOP-7844).
-       * Therefore, for local files, use FileOutputStream instead. */
-      val dstream =
-        if ((isDefaultLocal && uri.getScheme == null) || uri.getScheme == "file") {
-          new FileOutputStream(uri.getPath)
-        } else {
-          hadoopDataStream = Some(fileSystem.create(path))
-          hadoopDataStream.get
-        }
-
-      try {
-        val cstream = compressionCodec.map(_.compressedOutputStream(dstream)).getOrElse(dstream)
-        val bstream = new BufferedOutputStream(cstream, outputBufferSize)
-
-        EventLoggingListener.initEventLog(bstream, testing, loggedEvents)
-        fileSystem.setPermission(path, LOG_FILE_PERMISSIONS)
-        writer = Some(new PrintWriter(bstream))
-        logInfo("Logging events to %s".format(logPath))
-      } catch {
-        case e: Exception =>
-          dstream.close()
-          throw e
-      }
+      val path = new Path(logPath + IN_PROGRESS)
+      initLogFile(path){ os => new PrintWriter(os) }
     } else {
-
       if (fileSystem.exists(rollDirPath) && shouldOverwrite) {
         fileSystem.delete(rollDirPath, true)
       }
-
       fileSystem.mkdirs(rollDirPath, LOG_FILE_PERMISSIONS)
       rollEventLogFile()
-
     }
 
   }
