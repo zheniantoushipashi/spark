@@ -149,6 +149,7 @@ private[spark] class EventLoggingListener(
         .getOrElse(dstream)
       val bstream = new BufferedOutputStream(cstream, outputBufferSize)
       fileSystem.setPermission(path, LOG_FILE_PERMISSIONS)
+      EventLoggingListener.initEventLog(bstream, testing, loggedEvents)
       logInfo(s"Logging events to $path")
       writer = Some(fnSetupWriter(bstream))
     } catch {
