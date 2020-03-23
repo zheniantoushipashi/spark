@@ -69,7 +69,6 @@ private[spark] class EventLoggingListener(
   private val outputBufferSize = sparkConf.get(EVENT_LOG_OUTPUT_BUFFER_SIZE).toInt
   private val fileSystem = Utils.getHadoopFileSystem(logBaseDir, hadoopConf)
 
-  // KE-1252 KylinLogTool use this variable
   private val ROLL_LOG_DIR_NAME_PREFIX = "eventlog_v2_"
   private val ROLL_LOG_FILE_NAME_PREFIX = "events_"
   private var rollIndex: Long = 0L
