@@ -71,6 +71,7 @@ abstract class Optimizer(sessionCatalog: SessionCatalog)
         CollapseWindow,
         CombineFilters,
         CombineLimits,
+        RewriteOffsets,
         CombineUnions,
         // Constant folding and strength reduction
         NullPropagation,
@@ -1254,6 +1255,19 @@ object CombineLimits extends Rule[LogicalPlan] {
       LocalLimit(Least(Seq(ne, le)), grandChild)
     case Limit(le, Limit(ne, grandChild)) =>
       Limit(Least(Seq(ne, le)), grandChild)
+  }
+}
+
+/**
+ * Rewrite [[Offset]] as [[Limit]] or combines two adjacent [[Offset]] operators into one,
+ *  merging the expressions into one single expression.
+ */
+object RewriteOffsets extends Rule[LogicalPlan] {
+  def apply(plan: LogicalPlan): LogicalPlan = plan transform {
+    case GlobalLimit(le, Offset(oe, grandChild)) =>
+      GlobalLimitAndOffset(le, oe, grandChild)
+    case LocalLimit(le, Offset(oe, grandChild)) =>
+      Offset(oe, LocalLimit(Add(le, oe), grandChild))
   }
 }
 

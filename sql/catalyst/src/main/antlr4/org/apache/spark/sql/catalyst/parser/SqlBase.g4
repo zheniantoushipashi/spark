@@ -349,6 +349,7 @@ queryOrganization
       (SORT BY sort+=sortItem (',' sort+=sortItem)*)?
       windows?
       (LIMIT (ALL | limit=expression))?
+      (OFFSET offset=expression)?
     ;
 
 multiInsertQueryBody
@@ -752,7 +753,7 @@ nonReserved
     | EXTENDED | REFRESH | CLEAR | CACHE | UNCACHE | LAZY | GLOBAL | TEMPORARY | OPTIONS
     | GROUPING | CUBE | ROLLUP
     | EXPLAIN | FORMAT | LOGICAL | FORMATTED | CODEGEN | COST
-    | TABLESAMPLE | USE | TO | BUCKET | PERCENTLIT | OUT | OF
+    | TABLESAMPLE | USE | TO | BUCKET | PERCENTLIT | OUT | OF | OFFSET
     | SET | RESET
     | VIEW | REPLACE
     | IF
@@ -924,7 +925,7 @@ PERCENTLIT: 'PERCENT';
 BUCKET: 'BUCKET';
 OUT: 'OUT';
 OF: 'OF';
-
+OFFSET: 'OFFSET';
 SORT: 'SORT';
 CLUSTER: 'CLUSTER';
 DISTRIBUTE: 'DISTRIBUTE';
