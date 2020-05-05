@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.api.python.PythonEvalType
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.SubExprUtils._
@@ -60,20 +59,20 @@ trait CheckAnalysis extends PredicateHelper {
     case _ => None
   }
 
-  private def checkLimitClause(limitExpr: Expression): Unit = {
+  private def checkLimitLikeClause(name: String, limitExpr: Expression): Unit = {
     limitExpr match {
       case e if !e.foldable => failAnalysis(
-        "The limit expression must evaluate to a constant value, but got " +
+        s"The $name expression must evaluate to a constant value, but got " +
           limitExpr.sql)
       case e if e.dataType != IntegerType => failAnalysis(
-        s"The limit expression must be integer type, but got " +
+        s"The $name expression must be integer type, but got " +
           e.dataType.catalogString)
       case e =>
         e.eval() match {
           case null => failAnalysis(
-            s"The evaluated limit expression must not be null, but got ${limitExpr.sql}")
+            s"The evaluated $name expression must not be null, but got ${limitExpr.sql}")
           case v: Int if v < 0 => failAnalysis(
-            s"The limit expression must be equal to or greater than 0, but got $v")
+            s"The $name expression must be equal to or greater than 0, but got $v")
           case _ => // OK
         }
     }
@@ -264,9 +263,29 @@ trait CheckAnalysis extends PredicateHelper {
               }
             }
 
-          case GlobalLimit(limitExpr, _) => checkLimitClause(limitExpr)
+          case GlobalLimit(limitExpr, _) => checkLimitLikeClause("limit", limitExpr)
 
-          case LocalLimit(limitExpr, _) => checkLimitClause(limitExpr)
+          case LocalLimit(limitExpr, child) =>
+            checkLimitLikeClause("limit", limitExpr)
+            child match {
+              case Offset(offsetExpr, _) =>
+                val limit = limitExpr.eval().asInstanceOf[Int]
+                val offset = offsetExpr.eval().asInstanceOf[Int]
+                if (Int.MaxValue - limit < offset) {
+                  failAnalysis(
+                    s"""The sum of limit and offset must not be greater than Int.MaxValue,
+                       | but found limit = $limit, offset = $offset.""".stripMargin)
+                }
+              case _ =>
+            }
+
+          case Offset(offsetExpr, _) => checkLimitLikeClause("offset", offsetExpr)
+
+          case o if !o.isInstanceOf[GlobalLimit] && !o.isInstanceOf[LocalLimit]
+            && o.children.exists(_.isInstanceOf[Offset]) =>
+            failAnalysis(
+              s"""Only the OFFSET clause is allowed in the LIMIT clause, but the OFFSET
+                 | clause found in: ${o.nodeName}.""".stripMargin)
 
           case _: Union | _: SetOperation if operator.children.length > 1 =>
             def dataTypes(plan: LogicalPlan): Seq[DataType] = plan.output.map(_.dataType)
@@ -383,6 +402,7 @@ trait CheckAnalysis extends PredicateHelper {
           case _ => // Analysis successful!
         }
     }
+    checkOutermostOffset(plan)
     extendedCheckRules.foreach(_(plan))
     plan.foreachUp {
       case o if !o.resolved => failAnalysis(s"unresolved operator ${o.simpleString}")
@@ -390,6 +410,20 @@ trait CheckAnalysis extends PredicateHelper {
     }
 
     plan.setAnalyzed()
+  }
+
+  /**
+   * Validate that the root node of query or subquery is [[Offset]].
+   */
+  private def checkOutermostOffset(plan: LogicalPlan): Unit = {
+    plan match {
+      case Offset(offsetExpr, _) =>
+        checkLimitLikeClause("limit", offsetExpr)
+        failAnalysis(
+          s"""Only the OFFSET clause is allowed in the LIMIT clause, but the OFFSET
+             | clause is found to be the outermost node.""".stripMargin)
+      case _ =>
+    }
   }
 
   /**
