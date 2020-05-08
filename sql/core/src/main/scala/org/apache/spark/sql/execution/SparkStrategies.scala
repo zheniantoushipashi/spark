@@ -106,7 +106,7 @@ abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
         TakeOrderedAndProjectExec(limit, 0, order, child.output, planLater(child)) :: Nil
       case Limit(IntegerLiteral(limit), Project(projectList, Sort(order, true, child)))
           if limit < conf.topKSortFallbackThreshold =>
-        TakeOrderedAndProjectExec(limit, 0, order, child.output, planLater(child)) :: Nil
+        TakeOrderedAndProjectExec(limit, 0, order, projectList, planLater(child)) :: Nil
       case LimitRange(IntegerLiteral(start), IntegerLiteral(end),
       Project(projectList, Sort(order, true, child)))  if end < conf.topKSortFallbackThreshold =>
         TakeOrderedRangeAndProjectExec(start, end, order, projectList, planLater(child)) :: Nil
