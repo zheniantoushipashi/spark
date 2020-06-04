@@ -22,7 +22,7 @@ import java.util.function.Function
 
 import scala.collection.JavaConverters._
 
-import org.apache.spark.{JobExecutionStatus, SparkConf}
+import org.apache.spark.{InternalAccumulator, JobExecutionStatus, SparkConf}
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SQLExecution
@@ -35,6 +35,9 @@ class SQLAppStatusListener(
     conf: SparkConf,
     kvstore: ElementTrackingStore,
     live: Boolean) extends SparkListener with Logging {
+
+  // Task skewness detection on executor metrics update
+  private lazy val skewDetectEnabled = conf.get(TASK_SKEW_DETECT_ENABLED)
 
   // How often to flush intermediate state of a live execution to the store. When replaying logs,
   // never flush (only do the very last write).
@@ -120,6 +123,42 @@ class SQLAppStatusListener(
   override def onExecutorMetricsUpdate(event: SparkListenerExecutorMetricsUpdate): Unit = {
     event.accumUpdates.foreach { case (taskId, stageId, attemptId, accumUpdates) =>
       updateStageMetrics(stageId, attemptId, taskId, accumUpdates, false)
+    }
+
+    if(skewDetectEnabled) {
+      try {
+        val execId = event.execId
+        val stageIds = event.accumUpdates.map(_._2).toSet
+        import InternalAccumulator._
+        stageIds.foreach(stageId => {
+          Option(stageMetrics.get(stageId)).foreach(metrics => {
+            val taskMetrics = metrics.taskMetrics
+            if (taskMetrics == null || taskMetrics.isEmpty) {
+              return
+            }
+            val shuffleReadRecords = taskMetrics.values().asScala
+              .filter(_.names.contains(shuffleRead.RECORDS_READ))
+              .flatMap { m =>
+                m.names.zipWithIndex
+                  .filter(_._1.equals(shuffleRead.RECORDS_READ))
+                  .map { case (_, idx) => m.values(idx).toDouble }
+              }.toArray
+            if (shuffleReadRecords.isEmpty) {
+              return
+            }
+            val skewness = SQLAppStatistic.skewness(shuffleReadRecords)
+            val kurtosis = SQLAppStatistic.kurtosis(shuffleReadRecords)
+            if (skewness > SQLAppStatistic.STANDARD_SKEWNESS
+              && kurtosis > SQLAppStatistic.STANDARD_KURTOSIS) {
+              logWarning(s"stage task skewing detected by ${shuffleRead.RECORDS_READ}, " +
+                s"stageId: $stageId, execId: $execId, " +
+                s"shuffleReadRecords: ${shuffleReadRecords.map(_.toLong).sorted}")
+            }
+          })
+        })
+      } catch {
+        case e: Exception => logWarning(s"stage task skewness detecting failed", e)
+      }
     }
   }
 
@@ -209,9 +248,11 @@ class SQLAppStatusListener(
       }
 
       val ids = new Array[Long](updates.size)
+      val names = new Array[String](updates.size)
       val values = new Array[Long](updates.size)
       updates.zipWithIndex.foreach { case (acc, idx) =>
         ids(idx) = acc.id
+        names(idx) = acc.name.get
         // In a live application, accumulators have Long values, but when reading from event
         // logs, they have String values. For now, assume all accumulators are Long and covert
         // accordingly.
@@ -224,7 +265,7 @@ class SQLAppStatusListener(
 
       // TODO: storing metrics by task ID can cause metrics for the same task index to be
       // counted multiple times, for example due to speculation or re-attempts.
-      metrics.taskMetrics.put(taskId, new LiveTaskMetrics(ids, values, succeeded))
+      metrics.taskMetrics.put(taskId, new LiveTaskMetrics(ids, names, values, succeeded))
     }
   }
 
@@ -266,6 +307,12 @@ class SQLAppStatusListener(
     exec.metrics = sqlPlanMetrics
     exec.submissionTime = time
     update(exec)
+
+    if(skewDetectEnabled) {
+      logInfo(s"onExecutionStart executionId: $executionId, submissionTime: $time, " +
+        s"description: $description, details: $details," +
+        s"physicalPlanDescription: $physicalPlanDescription")
+    }
   }
 
   private def onExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
@@ -387,5 +434,6 @@ private class LiveStageMetrics(
 
 private class LiveTaskMetrics(
     val ids: Array[Long],
+    val names: Array[String],
     val values: Array[Long],
     val succeeded: Boolean)
