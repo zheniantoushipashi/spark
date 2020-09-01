@@ -152,7 +152,7 @@ class SQLAppStatusListener(
               && kurtosis > SQLAppStatistic.STANDARD_KURTOSIS) {
               logWarning(s"stage task skewing detected by ${shuffleRead.RECORDS_READ}, " +
                 s"stageId: $stageId, execId: $execId, " +
-                s"shuffleReadRecords: ${shuffleReadRecords.map(_.toLong).sorted}")
+                s"shuffleReadRecords: ${shuffleReadRecords.map(_.toLong).sorted.toSeq}")
             }
           })
         })
