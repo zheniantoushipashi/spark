@@ -115,7 +115,9 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
    * Create a SparkContext that loads settings from system properties (for instance, when
-   * launching with ./bin/spark-submit).
+   * launching with ./
+    *
+    * bin/spark-submit).
    */
   def this() = this(new SparkConf())
 

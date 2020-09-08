@@ -94,6 +94,8 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
     Configuration configuration = taskAttemptContext.getConfiguration();
     ParquetInputSplit split = (ParquetInputSplit)inputSplit;
     this.file = split.getPath();
+    // read retry before getFileStatus
+    this.file.getFileSystem(configuration).open(this.file).close();
     long[] rowGroupOffsets = split.getRowGroupOffsets();
 
     ParquetMetadata footer;
