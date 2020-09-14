@@ -23,7 +23,9 @@ import java.time._
 import java.time.temporal.{ChronoField, ChronoUnit, IsoFields}
 import java.util.{Locale, TimeZone}
 import java.util.concurrent.TimeUnit._
+import javax.xml.bind.DatatypeConverter
 
+import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 import sun.util.calendar.ZoneInfo
@@ -248,6 +250,26 @@ object DateTimeUtils {
       s0 + s1
     } else {
       s
+    }
+  }
+
+  @tailrec
+  def stringToTime(s: String): java.util.Date = {
+    val indexOfGMT = s.indexOf("GMT")
+    if (indexOfGMT != -1) {
+      // ISO8601 with a weird time zone specifier (2000-01-01T00:00GMT+01:00)
+      val s0 = s.substring(0, indexOfGMT)
+      val s1 = s.substring(indexOfGMT + 3)
+      // Mapped to 2000-01-01T00:00+01:00
+      stringToTime(s0 + s1)
+    } else if (!s.contains('T')) {
+      if (s.contains(' ')) {
+        Timestamp.valueOf(s)
+      } else {
+        Date.valueOf(s)
+      }
+    } else {
+      DatatypeConverter.parseDateTime(s).getTime()
     }
   }
 
@@ -491,6 +513,8 @@ object DateTimeUtils {
       case NonFatal(_) => None
     }
   }
+
+
 
   private def localTimestamp(microsec: SQLTimestamp, zoneId: ZoneId): LocalDateTime = {
     microsToInstant(microsec).atZone(zoneId).toLocalDateTime
