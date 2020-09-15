@@ -1643,6 +1643,23 @@ class SparkContext(config: SparkConf) extends Logging {
     }
   }
 
+  @DeveloperApi
+  def requestTotalExecutors(
+                         numExecutors: Int,
+                         forceKillOldExecutors: Boolean,
+                         newMemoryPerExecutorMB: Option[Int],
+                         newCoresPerExecutor: Option[Int]
+                                  ): Boolean = {
+    schedulerBackend match {
+      case b: ExecutorAllocationClient =>
+        b.requestTotalExecutors(numExecutors, forceKillOldExecutors,
+          newMemoryPerExecutorMB, newCoresPerExecutor)
+      case _ =>
+        logWarning("Requesting executors is not supported by current scheduler.")
+        false
+    }
+  }
+
   /**
    * :: DeveloperApi ::
    * Request an additional number of executors from the cluster manager.

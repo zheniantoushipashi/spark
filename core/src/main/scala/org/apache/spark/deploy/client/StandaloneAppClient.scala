@@ -207,6 +207,14 @@ private[spark] class StandaloneAppClient(
             logWarning("Attempted to request executors before registering with Master.")
             context.reply(false)
         }
+      case r: RequestExecutorsRenew =>
+        logInfo("send RequestExecutorsRenew rpc")
+        master match {
+          case Some(m) => askAndReplyAsync(m, context, r)
+          case None =>
+            logWarning("Attempted to request and renew executors.")
+            context.reply(false)
+        }
 
       case k: KillExecutors =>
         master match {
@@ -300,6 +308,21 @@ private[spark] class StandaloneAppClient(
       endpoint.get.ask[Boolean](RequestExecutors(appId.get, requestedTotal))
     } else {
       logWarning("Attempted to request executors before driver fully initialized.")
+      Future.successful(false)
+    }
+  }
+
+  def requestTotalExecutors(requestedTotal: Int,
+                                   forceKillOldExecutors: Boolean,
+                                   newMemoryPerExecutorMB: Option[Int],
+                                   newCoresPerExecutor: Option[Int]): Future[Boolean] = {
+    if (endpoint.get != null && appId.get != null) {
+      endpoint.get.ask[Boolean](
+        RequestExecutorsRenew(appId.get,
+          requestedTotal, forceKillOldExecutors,
+          newMemoryPerExecutorMB, newCoresPerExecutor))
+    } else {
+      logWarning("Attempted to request and refresh executors before driver fully initialized.")
       Future.successful(false)
     }
   }

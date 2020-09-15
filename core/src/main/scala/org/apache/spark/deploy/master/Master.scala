@@ -503,6 +503,11 @@ private[deploy] class Master(
     case RequestExecutors(appId, requestedTotal) =>
       context.reply(handleRequestExecutors(appId, requestedTotal))
 
+    case RequestExecutorsRenew(appId, requestedTotal, forceKillOldExecutors,
+    newMemoryPerExecutorMB, newCoresPerExecutor) =>
+      context.reply(handleRefreshApplicationAndExecutors(appId, requestedTotal,
+        forceKillOldExecutors, newMemoryPerExecutorMB, newCoresPerExecutor))
+
     case KillExecutors(appId, executorIds) =>
       val formattedExecutorIds = formatExecutorIds(executorIds)
       context.reply(handleKillExecutors(appId, formattedExecutorIds))
@@ -919,6 +924,66 @@ private[deploy] class Master(
         logWarning(s"Unknown application $appId requested $requestedTotal total executors.")
         false
     }
+  }
+
+  private def printExecutorStatus(appInfo: ApplicationInfo): Unit = {
+    logInfo(s"${appInfo.id} current executor:" +
+      appInfo.executors.values.map(executor => s"(${executor.id},${executor.state})")
+        .toList.mkString(" "))
+  }
+
+  private def handleRefreshApplicationAndExecutors(appId: String, requestedTotal: Int
+                                                   , forceKillOldExecutors: Boolean
+                                                   , newMemoryPerExecutorMB: Option[Int]
+                                                   , newCoresPerExecutor: Option[Int]): Boolean = {
+    idToApp.get(appId) match {
+      case Some(appInfo) =>
+        val appDesc = appInfo.desc
+        logInfo(s"Application $appId before requested and " +
+          s"renew to set total executors to $requestedTotal, " +
+          s"newMemoryPerExecutorMB to ${appDesc.memoryPerExecutorMB}, " +
+          s"newCoresPerExecutor to ${appDesc.coresPerExecutor}, ")
+        printExecutorStatus(appInfo)
+
+        newMemoryPerExecutorMB match {
+          case Some(i) => appDesc.memoryPerExecutorMB = i
+        }
+
+        if (newCoresPerExecutor != null) {
+          appDesc.coresPerExecutor = newCoresPerExecutor
+        }
+        appInfo.executorLimit = requestedTotal
+
+        handleKillOldExecutors(appInfo, forceKillOldExecutors)
+        schedule()
+
+        logInfo(s"Application $appId after requested and renew to set " +
+          s"newMemoryPerExecutorMB to ${appDesc.memoryPerExecutorMB}, " +
+          s"newCoresPerExecutor to ${appDesc.coresPerExecutor}, ")
+        printExecutorStatus(appInfo)
+        true
+      case None =>
+        logWarning(s"Unknown application $appId requested $requestedTotal total executors.")
+        false
+    }
+  }
+
+  private def handleKillOldExecutors(appInfo: ApplicationInfo,
+                                     forceKillOldExecutors: Boolean): Boolean = {
+    for (execId <- appInfo.executors.keys) {
+      appInfo.executors.get(execId) match {
+        case Some(executorDesc) =>
+          if (forceKillOldExecutors || ExecutorState.isFinished(executorDesc.state)) {
+            appInfo.removeExecutor(executorDesc)
+            killExecutor(executorDesc)
+            logInfo("remote kill executor " + executorDesc.fullId +
+              " on worker " + executorDesc.worker.id)
+          }
+        case None =>
+          logWarning("executor not found when kill")
+      }
+    }
+    true
   }
 
   /**

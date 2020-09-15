@@ -588,6 +588,32 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     defaultAskTimeout.awaitResult(response)
   }
 
+  final override def requestTotalExecutors(numExecutors: Int,
+                                            forceKillOldExecutors: Boolean,
+                                            newMemoryPerExecutorMB: Option[Int],
+                                            newCoresPerExecutor: Option[Int]): Boolean = {
+    if (numExecutors < 0) {
+      throw new IllegalArgumentException(
+        "Attempted to request a negative number of executor(s) " +
+          s"$numExecutors from the cluster manager. Please specify a positive number!")
+    }
+    logInfo(s"request to total executor and renew $numExecutors , " +
+      s"forceKillOldExecutors:$forceKillOldExecutors , " +
+      s"newMemoryPerExecutorMB:$newMemoryPerExecutorMB ," +
+      s"newCoresPerExecutor:$newCoresPerExecutor")
+
+    val response = synchronized {
+      this.requestedTotalExecutors = numExecutors
+      numPendingExecutors =
+        math.max(numExecutors - numExistingExecutors + executorsPendingToRemove.size, 0)
+
+      doRequestTotalExecutors(numExecutors,
+        forceKillOldExecutors, newMemoryPerExecutorMB, newCoresPerExecutor)
+    }
+
+    defaultAskTimeout.awaitResult(response)
+  }
+
   /**
    * Request executors from the cluster manager by specifying the total number desired,
    * including existing pending and running executors.
@@ -603,6 +629,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   protected def doRequestTotalExecutors(requestedTotal: Int): Future[Boolean] =
     Future.successful(false)
 
+  protected def doRequestTotalExecutors(requestedTotal: Int,
+                                        forceKillOldExecutors: Boolean,
+  newMemoryPerExecutorMB: Option[Int],
+  newCoresPerExecutor: Option[Int]): Future[Boolean] =
+    Future.successful(false)
   /**
    * Request that the cluster manager kill the specified executors.
    *
