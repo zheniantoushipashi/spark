@@ -962,10 +962,10 @@ object DateTimeUtils {
    * Returns the ceil date time from original date time and trunc level.
    * Trunc level should be generated using `parseTruncLevel()`, should be between 1 and 8
    */
-  def ceilTimestamp(t: SQLTimestamp, level: Int, zoneId: ZoneId): SQLTimestamp = {
+  def ceilTimestamp(t: SQLTimestamp, level: Int, zoneId: ZoneId): Timestamp = {
     val floorValue = truncTimestamp(t, level, zoneId)
     if (floorValue == t) {
-      floorValue
+      toJavaTimestamp(floorValue)
     } else {
       // trunc, then add a increment, trunc again === ceil
       val increment = level match {
@@ -981,7 +981,7 @@ object DateTimeUtils {
           // caller make sure that this should never be reached
           sys.error(s"Invalid trunc level: $level")
       }
-      truncTimestamp(floorValue + increment, level, zoneId)
+      toJavaTimestamp(truncTimestamp(floorValue + increment, level, zoneId))
     }
   }
 }
