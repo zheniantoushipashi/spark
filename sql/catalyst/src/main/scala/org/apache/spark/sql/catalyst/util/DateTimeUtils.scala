@@ -51,6 +51,8 @@ object DateTimeUtils {
   // It's 2440587.5, rounding up to be compatible with Hive.
   final val JULIAN_DAY_OF_EPOCH = 2440588
 
+  type SQLTimestamp = Long
+
   final val TimeZoneUTC = TimeZone.getTimeZone("UTC")
 
   val TIMEZONE_OPTION = "timeZone"
@@ -960,7 +962,7 @@ object DateTimeUtils {
    * Returns the ceil date time from original date time and trunc level.
    * Trunc level should be generated using `parseTruncLevel()`, should be between 1 and 8
    */
-  def ceilTimestamp(t: Long, level: Int, timeZone: TimeZone): Long = {
+  def ceilTimestamp(t: SQLTimestamp, level: Int, timeZone: TimeZone): SQLTimestamp = {
     val floorValue = truncTimestamp(t, level, getZoneId(timeZone.getID))
     if (floorValue == t) {
       floorValue
