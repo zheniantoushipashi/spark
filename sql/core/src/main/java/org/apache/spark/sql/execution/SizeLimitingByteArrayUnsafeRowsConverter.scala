@@ -27,7 +27,7 @@ import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.util.Utils
 
 private[spark] class SizeLimitingByteArrayUnsafeRowsConverter(
-                                                               maxCollectSize: Option[Long]
+                                                               maxCollectSize: Long
                                                              ) extends Logging {
   private var totalUncompressedResultSize = 0L
 
@@ -109,15 +109,12 @@ private[spark] class SizeLimitingByteArrayUnsafeRowsConverter(
 
   private def ensureTotalSizeIsBelowLimit(sizeOfNextRow: Int): Unit = {
     totalUncompressedResultSize += sizeOfNextRow
-    maxCollectSize match {
-      case Some(maxSize) => if (totalUncompressedResultSize > maxSize) {
-        val msg = s"Total size of uncompressed results " +
-          s"(${Utils.bytesToString(totalUncompressedResultSize)}) " +
-          s"is bigger than the limit of (${Utils.bytesToString(maxSize)})"
-        logError(msg)
-        throw new SparkException(msg)
-      }
-      case _ =>
+    if (totalUncompressedResultSize > sizeOfNextRow) {
+      val msg = s"Total size of uncompressed results " +
+        s"(${Utils.bytesToString(totalUncompressedResultSize)}) " +
+        s"is bigger than the limit of (${Utils.bytesToString(sizeOfNextRow)})"
+      logError(msg)
+      throw new SparkException(msg)
     }
   }
 }
