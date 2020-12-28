@@ -1154,7 +1154,7 @@ object SQLConf {
       "This is similar to spark.driver.maxResultSize but it enforces the limit on the " +
       "uncompressed result. Specifying this can help protect the driver from out-of-memory errors.")
     .bytesConf(ByteUnit.BYTE)
-    .createWithDefaultString("1024m")
+    .createWithDefaultString("3600m")
 
   val CODEGEN_FACTORY_MODE = buildConf("spark.sql.codegen.factoryMode")
     .doc("This config determines the fallback behavior of several codegen generators " +
@@ -3212,7 +3212,7 @@ class SQLConf extends Serializable with Logging {
     }
   }
 
-  def maxCollectSize: Option[Long] = getConf(SQLConf.MAX_COLLECT_SIZE)
+  def maxCollectSize: Long = getConf(SQLConf.MAX_COLLECT_SIZE)
 
   def adaptiveExecutionEnabled: Boolean = getConf(ADAPTIVE_EXECUTION_ENABLED)
 
