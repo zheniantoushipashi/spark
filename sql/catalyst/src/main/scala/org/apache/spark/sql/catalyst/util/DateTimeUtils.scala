@@ -51,6 +51,8 @@ object DateTimeUtils {
   // It's 2440587.5, rounding up to be compatible with Hive.
   final val JULIAN_DAY_OF_EPOCH = 2440588
 
+  type SQLTimestamp = Long
+
   final val TimeZoneUTC = TimeZone.getTimeZone("UTC")
 
   val TIMEZONE_OPTION = "timeZone"
@@ -195,7 +197,7 @@ object DateTimeUtils {
    * precision, so this conversion is lossy.
    */
   def microsToMillis(micros: Long): Long = {
-    // When the timestamp is negative i.e before 1970, we need to adjust the millseconds portion.
+    // When the timestamp is negative i.e before 1970, we need to adjust the milliseconds portion.
     // Example - 1965-01-01 10:11:12.123456 is represented as (-157700927876544) in micro precision.
     // In millis precision the above needs to be represented as (-157700927877).
     Math.floorDiv(micros, MICROS_PER_MILLIS)
@@ -960,8 +962,8 @@ object DateTimeUtils {
    * Returns the ceil date time from original date time and trunc level.
    * Trunc level should be generated using `parseTruncLevel()`, should be between 1 and 8
    */
-  def ceilTimestamp(t: Long, level: Int, timeZone: TimeZone): Long = {
-    val floorValue = truncTimestamp(t, level, getZoneId(timeZone.getID))
+  def ceilTimestamp(t: SQLTimestamp, level: Int, zoneId: ZoneId): SQLTimestamp = {
+    val floorValue = truncTimestamp(t, level, zoneId)
     if (floorValue == t) {
       floorValue
     } else {
@@ -979,7 +981,7 @@ object DateTimeUtils {
           // caller make sure that this should never be reached
           sys.error(s"Invalid trunc level: $level")
       }
-      truncTimestamp(floorValue + increment, level, getZoneId(timeZone.getID))
+      truncTimestamp(floorValue + increment, level, zoneId)
     }
   }
 }
