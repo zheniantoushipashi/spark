@@ -165,6 +165,10 @@ case class SparkListenerNodeBlacklistedForStage(
   extends SparkListenerEvent
 
 
+
+@DeveloperApi
+case class SparkListenerLogRollUp(checkTime: String) extends SparkListenerEvent
+
 @DeveloperApi
 @Since("3.1.0")
 case class SparkListenerNodeExcludedForStage(
@@ -479,6 +483,8 @@ private[spark] trait SparkListenerInterface {
    * Called when a Resource Profile is added to the manager.
    */
   def onResourceProfileAdded(event: SparkListenerResourceProfileAdded): Unit
+
+  def onSparkListenerLogRollUp(logRollUp: SparkListenerLogRollUp): Unit = {}
 }
 
 
