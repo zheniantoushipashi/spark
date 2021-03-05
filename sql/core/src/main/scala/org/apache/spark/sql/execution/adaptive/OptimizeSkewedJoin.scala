@@ -66,12 +66,12 @@ object OptimizeSkewedJoin extends CustomShuffleReaderRule {
    * partition size * ADAPTIVE_EXECUTION_SKEWED_PARTITION_FACTOR and also larger than
    * ADVISORY_PARTITION_SIZE_IN_BYTES.
    */
-  private def isSkewed(size: Long, medianSize: Long): Boolean = {
+  def isSkewed(size: Long, medianSize: Long): Boolean = {
     size > medianSize * conf.getConf(SQLConf.SKEW_JOIN_SKEWED_PARTITION_FACTOR) &&
       size > conf.getConf(SQLConf.SKEW_JOIN_SKEWED_PARTITION_THRESHOLD)
   }
 
-  private def medianSize(stats: MapOutputStatistics): Long = {
+  def medianSize(stats: MapOutputStatistics): Long = {
     val numPartitions = stats.bytesByPartitionId.length
     val bytes = stats.bytesByPartitionId.sorted
     numPartitions match {
@@ -86,7 +86,7 @@ object OptimizeSkewedJoin extends CustomShuffleReaderRule {
    * to split skewed partitions is the average size of non-skewed partition, or the
    * advisory partition size if avg size is smaller than it.
    */
-  private def targetSize(sizes: Seq[Long], medianSize: Long): Long = {
+  def targetSize(sizes: Seq[Long], medianSize: Long): Long = {
     val advisorySize = conf.getConf(SQLConf.ADVISORY_PARTITION_SIZE_IN_BYTES)
     val nonSkewSizes = sizes.filterNot(isSkewed(_, medianSize))
     if (nonSkewSizes.isEmpty) {
@@ -108,7 +108,7 @@ object OptimizeSkewedJoin extends CustomShuffleReaderRule {
    * Splits the skewed partition based on the map size and the target partition size
    * after split, and create a list of `PartialMapperPartitionSpec`. Returns None if can't split.
    */
-  private def createSkewPartitionSpecs(
+  def createSkewPartitionSpecs(
       shuffleId: Int,
       reducerId: Int,
       targetSize: Long): Option[Seq[PartialReducerPartitionSpec]] = {
@@ -140,7 +140,7 @@ object OptimizeSkewedJoin extends CustomShuffleReaderRule {
     joinType == Inner || joinType == Cross || joinType == RightOuter
   }
 
-  private def getSizeInfo(medianSize: Long, sizes: Seq[Long]): String = {
+  def getSizeInfo(medianSize: Long, sizes: Seq[Long]): String = {
     s"median size: $medianSize, max size: ${sizes.max}, min size: ${sizes.min}, avg size: " +
       sizes.sum / sizes.length
   }
@@ -263,7 +263,7 @@ object OptimizeSkewedJoin extends CustomShuffleReaderRule {
 
     val shuffleStages = collectShuffleStages(plan)
 
-    if (shuffleStages.length == 2) {
+     if (shuffleStages.length == 2) {
       // When multi table join, there will be too many complex combination to consider.
       // Currently we only handle 2 table join like following use case.
       // SMJ

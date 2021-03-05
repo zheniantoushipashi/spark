@@ -21,9 +21,8 @@ import java.io.File
 import java.net.URI
 
 import org.apache.log4j.Level
-
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobStart}
-import org.apache.spark.sql.{Dataset, QueryTest, Row, SparkSession, Strategy}
+import org.apache.spark.sql.{Dataset, QueryTest, Row, SaveMode, SparkSession, Strategy}
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, LogicalPlan}
 import org.apache.spark.sql.execution.{PartialReducerPartitionSpec, QueryExecution, ReusedSubqueryExec, ShuffledRowRDD, SparkPlan, UnaryExecNode}
@@ -1457,6 +1456,31 @@ class AdaptiveQueryExecSuite
           val blocksFetched2 = blocksFetchedMetric2.get.value
           assert(blocksFetched < blocksFetched2)
         }
+      }
+    }
+  }
+
+  test("Skew Repartition Fetch in AQE") {
+    def hasRepartitionShuffle(plan: SparkPlan): Boolean = {
+      find(plan) {
+        case s: ShuffleExchangeLike =>
+          s.shuffleOrigin == REPARTITION || s.shuffleOrigin == REPARTITION_WITH_NUM
+        case _ => false
+      }.isDefined
+    }
+    withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
+      SQLConf.SHUFFLE_PARTITIONS.key -> "5") {
+      withSQLConf(
+        SQLConf.SKEW_JOIN_SKEWED_PARTITION_THRESHOLD.key -> "1",
+        SQLConf.SKEW_JOIN_SKEWED_PARTITION_FACTOR.key -> "0",
+        SQLConf.ADVISORY_PARTITION_SIZE_IN_BYTES.key -> "10") {
+        val dfRepartition = spark.range(1000000)
+          .repartition( 15, $"id")
+          .sortWithinPartitions($"id")
+        dfRepartition
+          .write.mode(SaveMode.Overwrite).parquet("/Users/mingming.ge/Documents/parquet/11")
+        val plan = dfRepartition.queryExecution.executedPlan
+        assert(hasRepartitionShuffle(plan))
       }
     }
   }

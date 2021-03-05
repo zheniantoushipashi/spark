@@ -24,7 +24,6 @@ import org.apache.hadoop.fs.{FileAlreadyExistsException, Path}
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
-
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.io.{FileCommitProtocol, SparkHadoopWriterUtils}
@@ -38,7 +37,7 @@ import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReferences
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, ExprCode}
 import org.apache.spark.sql.catalyst.plans.physical.HashPartitioning
 import org.apache.spark.sql.catalyst.util.{CaseInsensitiveMap, DateTimeUtils}
-import org.apache.spark.sql.execution.{ProjectExec, SortExec, SparkPlan, SQLExecution}
+import org.apache.spark.sql.execution.{CoalescedPartitionSpec, PartialReducerPartitionSpec, ProjectExec, ShuffledRowRDDPartition, SortExec, SparkPlan, SQLExecution}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.unsafe.types.UTF8String
@@ -146,7 +145,9 @@ object FileFormatWriter extends Logging {
         .getOrElse(sparkSession.sessionState.conf.maxRecordsPerFile),
       timeZoneId = caseInsensitiveOptions.get(DateTimeUtils.TIMEZONE_OPTION)
         .getOrElse(sparkSession.sessionState.conf.sessionLocalTimeZone),
-      statsTrackers = statsTrackers
+      statsTrackers = statsTrackers,
+      false,
+      (None, None)
     )
 
     // We should first sort by partition columns, then bucket id, and finally sorting columns.
@@ -196,6 +197,9 @@ object FileFormatWriter extends Logging {
       }
 
       val jobIdInstant = new Date().getTime
+
+      val skewRepEnabled = sparkSession.sessionState.conf.skewRepartitionEnabled
+
       val ret = new Array[WriteTaskResult](rddWithNonEmptyPartitions.partitions.length)
       sparkSession.sparkContext.runJob(
         rddWithNonEmptyPartitions,
@@ -207,7 +211,9 @@ object FileFormatWriter extends Logging {
             sparkPartitionId = taskContext.partitionId(),
             sparkAttemptNumber = taskContext.taskAttemptId().toInt & Integer.MAX_VALUE,
             committer,
-            iterator = iter)
+            iterator = iter,
+            skewRepartition = skewRepEnabled,
+            rddWithNonEmptyPartitions.partitions.apply(taskContext.partitionId()))
         },
         rddWithNonEmptyPartitions.partitions.indices,
         (index, res: WriteTaskResult) => {
@@ -240,9 +246,32 @@ object FileFormatWriter extends Logging {
       sparkPartitionId: Int,
       sparkAttemptNumber: Int,
       committer: FileCommitProtocol,
-      iterator: Iterator[InternalRow]): WriteTaskResult = {
+      iterator: Iterator[InternalRow],
+      skewRepartition: Boolean,
+      partition: Partition): WriteTaskResult = {
 
     val jobId = SparkHadoopWriterUtils.createJobID(new Date(jobIdInstant), sparkStageId)
+
+    description.skewRepartitionEnabled = skewRepartition
+    if (skewRepartition) {
+      description.specPartitionId = {
+        partition match {
+          case p @ (_: ShuffledRowRDDPartition) =>
+            val spec = p.asInstanceOf[ShuffledRowRDDPartition].spec
+            spec match {
+              case prps @ (_: PartialReducerPartitionSpec) =>
+                val splitSpecId = prps.reducerIndex.toString + prps.startMapIndex + prps.endMapIndex
+                (Option(prps.reducerIndex), Option(splitSpecId.toInt))
+              case cps @ (_: CoalescedPartitionSpec) =>
+                val splitSpecId = cps.startReducerIndex
+                (Option(splitSpecId), Option(splitSpecId))
+              case _ => (None, None)
+            }
+          case _ => (None, None)
+        }
+      }
+    }
+
     val taskId = new TaskID(jobId, TaskType.MAP, sparkPartitionId)
     val taskAttemptId = new TaskAttemptID(taskId, sparkAttemptNumber)
 

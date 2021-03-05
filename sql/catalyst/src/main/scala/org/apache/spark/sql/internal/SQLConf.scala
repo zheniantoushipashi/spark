@@ -515,6 +515,15 @@ object SQLConf {
       .booleanConf
       .createWithDefault(true)
 
+  val SKEW_REPARTITION_ENABLED =
+    buildConf("spark.sql.adaptive.skewRepartition.enabled")
+      .doc(s"When true and '${ADAPTIVE_EXECUTION_ENABLED.key}' is true, Spark dynamically " +
+        "handles skew in repartition by splitting (and replicating if needed) skewed " +
+        "partitions.")
+      .version("3.0.0")
+      .booleanConf
+      .createWithDefault(false)
+
   val SKEW_JOIN_SKEWED_PARTITION_FACTOR =
     buildConf("spark.sql.adaptive.skewJoin.skewedPartitionFactor")
       .doc("A partition is considered as skewed if its size is larger than this factor " +
@@ -1452,7 +1461,7 @@ object SQLConf {
       .booleanConf
       .createWithDefault(true)
 
-  val USE_DEPRECATED_KAFKA_OFFSET_FETCHING =
+  val USE_DEPRECATED_KAFKA_OFFSET_FETCHING: ConfigEntry[Boolean] =
     buildConf("spark.sql.streaming.kafka.useDeprecatedOffsetFetching")
       .internal()
       .doc("When true, the deprecated Consumer based offset fetching used which could cause " +
@@ -3266,6 +3275,8 @@ class SQLConf extends Serializable with Logging {
     getConf(NON_EMPTY_PARTITION_RATIO_FOR_BROADCAST_JOIN)
 
   def coalesceShufflePartitionsEnabled: Boolean = getConf(COALESCE_PARTITIONS_ENABLED)
+
+  def skewRepartitionEnabled: Boolean = getConf(SKEW_REPARTITION_ENABLED)
 
   def minBatchesToRetain: Int = getConf(MIN_BATCHES_TO_RETAIN)
 

@@ -99,6 +99,7 @@ case class AdaptiveSparkPlanExec(
     // The following two rules need to make use of 'CustomShuffleReaderExec.partitionSpecs'
     // added by `CoalesceShufflePartitions`. So they must be executed after it.
     OptimizeSkewedJoin,
+    OptimizeSkewedRepartition,
     OptimizeLocalShuffleReader
   )
 

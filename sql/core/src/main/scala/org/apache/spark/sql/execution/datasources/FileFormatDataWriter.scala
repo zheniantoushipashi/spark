@@ -115,10 +115,15 @@ class SingleDirectoryDataWriter(
     releaseResources()
 
     val ext = description.outputWriterFactory.getFileExtension(taskAttemptContext)
-    val currentPath = committer.newTaskTempFile(
+    var currentPath = committer.newTaskTempFile(
       taskAttemptContext,
       None,
       f"-c$fileCounter%03d" + ext)
+
+
+    if (description.skewRepartitionEnabled && description.specPartitionId._1.headOption != None) {
+      currentPath = wrapWritePath(currentPath)
+    }
 
     currentWriter = description.outputWriterFactory.newInstance(
       path = currentPath,
@@ -126,6 +131,15 @@ class SingleDirectoryDataWriter(
       context = taskAttemptContext)
 
     statsTrackers.foreach(_.newFile(currentPath))
+  }
+
+  private def wrapWritePath(path: String): String = {
+    val f = new Path(path)
+    val partitionId = f.getName.split("-", 3)(1)
+    val specId = f"${description.specPartitionId._1.get}%05d"
+    val part = "part-"
+    path.replace(part + partitionId,
+      part + specId + "-" + description.specPartitionId._2.get)
   }
 
   override def write(record: InternalRow): Unit = {
@@ -290,7 +304,9 @@ class WriteJobDescription(
     val customPartitionLocations: Map[TablePartitionSpec, String],
     val maxRecordsPerFile: Long,
     val timeZoneId: String,
-    val statsTrackers: Seq[WriteJobStatsTracker])
+    val statsTrackers: Seq[WriteJobStatsTracker],
+    var skewRepartitionEnabled: Boolean,
+    var specPartitionId: (Option[Int], Option[Int]))
   extends Serializable {
 
   assert(AttributeSet(allColumns) == AttributeSet(partitionColumns ++ dataColumns),

@@ -136,7 +136,9 @@ abstract class FileWriteBuilder(
         .getOrElse(sparkSession.sessionState.conf.maxRecordsPerFile),
       timeZoneId = caseInsensitiveOptions.get(DateTimeUtils.TIMEZONE_OPTION)
         .getOrElse(sparkSession.sessionState.conf.sessionLocalTimeZone),
-      statsTrackers = Seq(statsTracker)
+      statsTrackers = Seq(statsTracker),
+      false,
+      (None, None)
     )
   }
 }
