@@ -214,7 +214,9 @@ object FileFormatWriter extends Logging {
             committer,
             iterator = iter,
             skewRepartition = skewRepEnabled,
-            rddWithNonEmptyPartitions.partitions.apply(taskContext.partitionId()))
+            if (skewRepEnabled) {
+              rddWithNonEmptyPartitions.partitions.apply(taskContext.partitionId())
+            } else null)
         },
         rddWithNonEmptyPartitions.partitions.indices,
         (index, res: WriteTaskResult) => {

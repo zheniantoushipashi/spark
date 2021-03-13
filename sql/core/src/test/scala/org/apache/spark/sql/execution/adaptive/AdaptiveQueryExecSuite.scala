@@ -1471,6 +1471,7 @@ class AdaptiveQueryExecSuite
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.SHUFFLE_PARTITIONS.key -> "5") {
       withSQLConf(
+        SQLConf.SKEW_REPARTITION_ENABLED.key -> "true",
         SQLConf.SKEW_JOIN_SKEWED_PARTITION_THRESHOLD.key -> "1",
         SQLConf.SKEW_JOIN_SKEWED_PARTITION_FACTOR.key -> "0",
         SQLConf.ADVISORY_PARTITION_SIZE_IN_BYTES.key -> "10") {

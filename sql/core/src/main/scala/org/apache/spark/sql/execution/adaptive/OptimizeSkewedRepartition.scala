@@ -104,7 +104,7 @@ object OptimizeSkewedRepartition extends CustomShuffleReaderRule {
           val skewSpecs = createSkewPartitionSpecs(
             stageInfo.mapStats.shuffleId, reducerId, targetSize0)
           if (skewSpecs.isDefined) {
-            logDebug(s"Left side partition $partitionIndex " +
+            logDebug(s"Partition $partitionIndex " +
               s"(${FileUtils.byteCountToDisplaySize(actualSize)}) is skewed, " +
               s"split it into ${skewSpecs.get.length} parts.")
             numSkewed += 1
